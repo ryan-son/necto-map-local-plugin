@@ -41,23 +41,43 @@
 
 사내·로컬 전용 앱 기준이에요. 먼저 [요구 사항](#요구-사항)을 확인하세요.
 
-1. 패키지를 추가해요: `https://github.com/ryan-son/necto-map-local-plugin` (`0.1.0`부터)
-2. 앱 시작 시점에 등록해요.
+1. 패키지 두 개를 추가하고 각각의 제품을 앱 타깃에 링크해요. 이 패키지(`0.1.0`부터)의
+   `NectoMapLocalPlugin`, 그리고 등록할 때 앱이 부르는 [Necto](https://github.com/toss/necto)
+   (`0.2.x`)의 `NectoSDK`예요. Xcode에서는 File → Add Package Dependencies를 써요.
+   `Package.swift`라면:
+   ```swift
+   dependencies: [
+       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.1.0"),
+       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.0")),
+   ],
+   // 앱 타깃의 dependencies
+   .product(name: "NectoMapLocalPlugin", package: "necto-map-local-plugin"),
+   .product(name: "NectoSDK", package: "necto"),
+   ```
+2. 앱 시작 시점에 등록해요. Necto의 네트워크 플러그인은 선택이에요. Map Local 뒤에 등록하면
+   실제 응답을 보고 그 응답으로 규칙을 시작할 수 있어요
+   ([치르는 비용](docs/usage-ko.md#실제-응답-캡처하기)).
    ```swift
    #if DEBUG
    import NectoSDK
    import NectoMapLocalPlugin
+   import NectoURLSessionCapture
    #endif
 
    // App.init 등 가장 이른 시점
    #if DEBUG
    NectoSDK.register(NectoMapLocalPlugin())
+   NectoSDK.register(URLSessionNetworkPlugin())  // 선택, Map Local 뒤에
    NectoSDK.start()
    #endif
    ```
-3. Necto 앱을 실행하고 기기 → 앱 → **Map Local**을 열어요.
-4. 「트래픽」 탭에서 요청을 고르고 「이 응답으로 목업」을 눌러요. 목업하면 그 호스트도 허용
-   호스트에 들어가요. 「규칙」 탭에서 응답을 고쳐요.
+3. 이름에 `Debug`가 들어간 구성으로 빌드해요. `Staging`처럼 다른 이름이면 패키지가 Release로
+   빌드되어 앱이 컴파일되지 않아요([구성 이름 규칙](docs/release-builds-ko.md#구성-이름-규칙)).
+4. [Necto 앱을 설치](https://github.com/toss/necto/blob/main/docs/install.md)하고 실행해요.
+   앱을 실행한 뒤 기기 → 앱 → **Map Local**을 열어요.
+5. 「트래픽」 탭에서 요청을 고르고 「이 응답으로 목업」을 눌러요(네트워크 플러그인이 없으면
+   「빈 응답으로 목업」). 목업하면 그 호스트도 허용 호스트에 들어가요. 「규칙」 탭에서 응답을
+   고쳐요.
 
 바꾸는 즉시 저장되고 다음 요청부터 적용돼요. Map Local이 켜져 있으면 Necto가 있든 없든
 규칙이 적용돼요. 나머지는 [docs/usage-ko.md](docs/usage-ko.md)에 있어요.

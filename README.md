@@ -42,23 +42,44 @@ Use it to:
 
 For internal or local-only apps. Check the [requirements](#requirements) first.
 
-1. Add the package: `https://github.com/ryan-son/necto-map-local-plugin` (from `0.1.0`).
-2. Register it at app startup:
+1. Add two packages and link a product from each to the app target: this one (from `0.1.0`)
+   for `NectoMapLocalPlugin`, and [Necto](https://github.com/toss/necto) (`0.2.x`) for
+   `NectoSDK`, which the app calls to register. In Xcode, use File → Add Package
+   Dependencies. In a `Package.swift`:
+   ```swift
+   dependencies: [
+       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.1.0"),
+       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.0")),
+   ],
+   // the app target's dependencies
+   .product(name: "NectoMapLocalPlugin", package: "necto-map-local-plugin"),
+   .product(name: "NectoSDK", package: "necto"),
+   ```
+2. Register it at app startup. Necto's network plugin is optional: registered after Map
+   Local, it lets you see real responses and start a rule from one
+   ([what it costs](docs/usage.md#capturing-real-responses)).
    ```swift
    #if DEBUG
    import NectoSDK
    import NectoMapLocalPlugin
+   import NectoURLSessionCapture
    #endif
 
    // App.init or any other earliest point
    #if DEBUG
    NectoSDK.register(NectoMapLocalPlugin())
+   NectoSDK.register(URLSessionNetworkPlugin())  // optional, after Map Local
    NectoSDK.start()
    #endif
    ```
-3. Run the Necto app, then open Device → App → **Map Local**.
-4. In the "Traffic" tab, select a request and press "Mock with this response". Mocking also
-   adds its host to the allowed hosts. Edit the response in the "Rules" tab.
+3. Build with a configuration whose name contains `Debug`. Under another name, such as
+   `Staging`, the package builds as Release and the app doesn't compile
+   ([configuration name rule](docs/release-builds.md#configuration-name-rule)).
+4. [Install the Necto app](https://github.com/toss/necto/blob/main/docs/install.md) and run
+   it. Run your app, then open Device → App → **Map Local**.
+5. In the "Traffic" tab, select a request and press "Mock with this response" ("Mock with an
+   empty response" without the network plugin). Mocking also adds its host to the allowed
+   hosts. Edit the response in the "Rules" tab.
 
 Changes are saved at once and apply from the next request. While Map Local is on, its rules
 apply with or without Necto. [docs/usage.md](docs/usage.md) covers the rest.
