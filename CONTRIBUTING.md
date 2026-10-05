@@ -23,7 +23,8 @@ A Korean copy is next to its document as `X-ko.md`, and the two change together.
 `script/check-doc-pairs` fails when a pair differs in its headings (count and levels), its
 number of code blocks, or its link targets. A Korean copy links to Korean copies where the
 English links to English ones; the check reads them as the same target.
-`script/check-doc-links` fails on a relative link that does not resolve.
+`script/check-doc-links` fails on a relative link that does not resolve, or whose
+`#fragment` names no heading in the target document.
 
 Write Korean documents in 해요체, the polite informal style, in short, plain sentences, as
 Necto's Korean documents are. Korean UI strings (the panel's dictionary and the in-app
@@ -60,7 +61,8 @@ device or simulator), and steps to reproduce. Report a vulnerability privately, 
      so Release builds compile none of it (`script/lint-guard`).
    - Every action the workflows use is pinned to a full commit SHA
      (`script/lint-workflows`).
-   - Each document and its Korean copy match, and their relative links resolve
+   - Each document and its Korean copy match, and their relative links and heading anchors
+     resolve
      (`script/check-doc-pairs`, `script/check-doc-links`).
    - The panel's tests pass and the panel builds (`script/build-panel`). Then `script/ci`
      checks that the committed `EmbeddedPanel.swift` is unchanged by that build, so

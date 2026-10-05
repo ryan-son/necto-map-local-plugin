@@ -22,7 +22,8 @@ Map Local for Necto에 관심을 가져 주셔서 감사해요.
 한국어판은 원문 옆에 `X-ko.md`로 두고, 둘은 함께 바꿔요. 제목(개수와 수준), 코드 블록 수,
 링크 대상 중 하나라도 다르면 `script/check-doc-pairs`가 실패해요. 영어판이 영어 문서로 거는
 링크를 한국어판은 한국어 문서로 걸고, 검사는 둘을 같은 대상으로 읽어요. 상대 링크가 가리키는
-파일이 없으면 `script/check-doc-links`가 실패해요.
+파일이 없거나, 링크의 `#앵커`가 대상 문서의 어느 제목과도 맞지 않으면 `script/check-doc-links`가
+실패해요.
 
 한국어 문서는 Necto의 한국어 문서처럼 짧고 쉬운 해요체 문장으로 써요. 한국어 UI 문자열(패널
 사전과 앱 안 배지)은 Necto 기본 플러그인처럼 합니다체를 써요.
@@ -57,7 +58,7 @@ Necto 버전, 플러그인 버전, 앱 연결 방식(USB 실기기 또는 시뮬
      Release 빌드에서 하나도 컴파일되지 않는지 확인해요(`script/lint-guard`).
    - 워크플로가 쓰는 모든 액션이 전체 커밋 SHA로 고정돼 있는지 확인해요
      (`script/lint-workflows`).
-   - 문서와 한국어판이 일치하는지, 상대 링크가 가리키는 파일이 있는지 확인해요
+   - 문서와 한국어판이 일치하는지, 상대 링크가 가리키는 파일과 제목 앵커가 있는지 확인해요
      (`script/check-doc-pairs`, `script/check-doc-links`).
    - 패널 테스트를 돌리고 패널을 빌드해요(`script/build-panel`). 그다음 `script/ci`가 그
      빌드로 커밋된 `EmbeddedPanel.swift`가 바뀌지 않았는지 확인해요. 그래서 `script/build-panel`만

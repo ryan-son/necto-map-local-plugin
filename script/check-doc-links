@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
 # Check that every relative link in the repository's Markdown resolves to a file or folder
-# that exists. External links (`https:`, `mailto:` …) and links to a heading in the same
-# document are not checked. A fragment is dropped before the path is checked.
+# that exists, and that a fragment pointing into a Markdown document (`usage.md#auth-rule`,
+# or `#auth-rule` in the same document) names one of its headings. Headings are compared as
+# GitHub slugs: lower case, punctuation dropped, spaces as hyphens, repeats numbered
+# (`-1`, `-2`). External links (`https:`, `mailto:` …) are not checked.
 #
 # Screenshots are captured by hand, so an image (`![…](…)`) that is not committed yet is
 # reported as PENDING on every run, and does not fail. Any other missing target fails.
@@ -41,6 +43,48 @@ exec ruby --disable-gems -e '
     end
   end
 
+  # The anchor GitHub gives a heading: inline code and link text kept, punctuation dropped.
+  def slug(heading)
+    text = heading.gsub(/`([^`]*)`/, "\\1").gsub(/!?\[([^\]]*)\]\([^)]*\)/, "\\1").gsub(/<[^>]+>/, "")
+    text.downcase.gsub(/[^\p{L}\p{N}\p{M} _-]/, "").tr(" ", "-")
+  end
+
+  ANCHORS = {}
+  # The anchors of a document: its headings outside code blocks and comments, and
+  # explicit `<a id>`/`<a name>` targets.
+  def anchors(file)
+    ANCHORS[file] ||= begin
+      seen = Hash.new(0)
+      found = []
+      fence = nil
+      comment = false
+      File.foreach(file) do |line|
+        if fence
+          fence = nil if line =~ /\A\s*#{Regexp.escape(fence)}+\s*\z/
+          next
+        end
+        line, comment = uncomment(line, comment)
+        if (m = line.match(/\A\s*(`{3,}|~{3,})/))
+          fence = m[1][0] * 3
+          next
+        end
+        line.scan(/<a\b[^>]*\b(?:id|name)="([^"]+)"/) { |(id)| found << id }
+        next unless (m = line.match(/\A {0,3}\#{1,6}\s+(.*?)\s*\#*\s*\z/))
+        base = slug(m[1])
+        found << (seen[base].zero? ? base : "#{base}-#{seen[base]}")
+        seen[base] += 1
+      end
+      found
+    end
+  end
+
+  def fragment_of(target)
+    fragment = target.split("#", 2)[1].to_s
+    URI.decode_www_form_component(fragment.gsub("+", "%2B"))
+  rescue ArgumentError
+    fragment
+  end
+
   files = []
   Find.find(".") do |path|
     if File.directory?(path)
@@ -53,6 +97,7 @@ exec ruby --disable-gems -e '
 
   failed = false
   checked = 0
+  fragments = 0
   files.each do |file|
     fence = nil
     comment = false
@@ -74,10 +119,27 @@ exec ruby --disable-gems -e '
       text.scan(/<a\b[^>]*\bhref="([^"]+)"/) { |(t)| links << [t, false] }
       links.each do |target, image|
         path = target.split("#", 2).first.to_s.split("?", 2).first.to_s
-        next if path.empty? || path =~ /\A[a-z][a-z0-9+.-]*:/i || path.start_with?("//")
+        fragment = fragment_of(target)
+        if path.empty?
+          fragments += 1 unless fragment.empty?
+          if !fragment.empty? && !anchors(file).include?(fragment)
+            puts "BROKEN: #{file}:#{number}: #{target}"
+            failed = true
+          end
+          next
+        end
+        next if path =~ /\A[a-z][a-z0-9+.-]*:/i || path.start_with?("//")
         resolved = path.start_with?("/") ? path.delete_prefix("/") : Pathname.new(File.dirname(file)).join(URI.decode_www_form_component(path.gsub("+", "%2B"))).cleanpath.to_s
         checked += 1
-        next if File.exist?(resolved)
+        if File.exist?(resolved)
+          markdown = !fragment.empty? && resolved.end_with?(".md") && File.file?(resolved)
+          fragments += 1 if markdown
+          if markdown && !anchors(resolved).include?(fragment)
+            puts "BROKEN: #{file}:#{number}: #{target}"
+            failed = true
+          end
+          next
+        end
         if image
           puts "PENDING: #{file}:#{number}: image #{resolved} is not committed yet"
         else
@@ -91,6 +153,6 @@ exec ruby --disable-gems -e '
     puts "no relative links found"
     failed = true
   end
-  puts "OK: #{checked} relative link#{checked == 1 ? "" : "s"} in #{files.length} documents" unless failed
+  puts "OK: #{checked} relative link#{checked == 1 ? "" : "s"} and #{fragments} heading fragment#{fragments == 1 ? "" : "s"} in #{files.length} documents" unless failed
   exit(failed ? 1 : 0)
 '

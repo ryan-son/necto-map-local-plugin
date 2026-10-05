@@ -31,7 +31,7 @@ The holder is the one in [LICENSE](LICENSE). Never copy Necto's own holder.
 | Check a release tag and write its assets | `script/prepare-release <tag> <out-dir>` |
 | Check that workflow actions are pinned to commits | `script/lint-workflows` |
 | Check that each `X.md` and `X-ko.md` keep the same headings, code blocks and links | `script/check-doc-pairs` |
-| Check that every relative link in the Markdown resolves | `script/check-doc-links` |
+| Check that every relative link and heading anchor in the Markdown resolves | `script/check-doc-links` |
 
 The panel must be built before the Swift package is committed, because its output rides
 inside `NectoMapLocalPlugin` as `EmbeddedPanel.swift`. `script/build-panel` tests,
@@ -89,7 +89,7 @@ SECURITY.md                     How to report a vulnerability
   (README, CONTRIBUTING, SECURITY and the user and design docs in `docs/`) must keep the
   same headings, code blocks and links; `script/check-doc-pairs` fails otherwise. A Korean
   copy sits next to its document with the `-ko.md` suffix. `script/check-doc-links` fails
-  on a relative link that does not resolve.
+  on a relative link that does not resolve, or whose `#fragment` names no heading.
 - **Test counts are a check.** A refactor keeps `swift test` and `npx vitest run` at the
   same number of tests. Report both when a change is meant to preserve behavior.
 
