@@ -2,41 +2,81 @@
 
 [한국어](usage-ko.md)
 
-How to define responses in the panel, and what the app does with them. Setting up the
-package is in the [README](../README.md). Keeping it out of release builds is in
-[release-builds.md](release-builds.md). For a short path to a common job, start with
-[recipes.md](recipes.md).
+What each part of the panel does, and what the app does with your rules. For a short path
+to a common job, see [recipes.md](recipes.md). When something doesn't work, find the symptom
+in [troubleshooting.md](troubleshooting.md). Setting up the package is in the
+[README](../README.md), and keeping Map Local out of release builds is in
+[release-builds.md](release-builds.md).
 
 ## How rules apply
 
-The app code is two lines: register the plugin and start Necto. Allowed hosts, rules,
-responses, delays and errors are all set in the panel. Changes are saved at once and apply
-from the next request.
+The app code is two lines: register the plugin and start Necto. You set allowed hosts,
+rules, responses, delays and errors in the panel. A change in the panel is saved in the app
+at once and applies from the next request.
 
-The last configuration is saved in the app. **While Map Local is on, its rules apply, with
-or without Necto.** That holds from the first request after a relaunch, and while Necto is
-closed. The app shows a [badge](#the-badge) whenever something applies. Tap it to turn Map
-Local off.
+The app keeps the latest configuration. **While Map Local is on, its rules apply even when
+the Necto Mac app is closed.** They apply from the first request after the app relaunches.
+While Map Local is on, the app shows a [badge](#the-badge) whenever Map Local is affecting
+it. Tap the badge to
+turn Map Local off.
 
-Requests that no rule answers go to the real server. If the allowed hosts are empty,
-nothing is mocked.
+By default, requests that no rule answers go to the real server. You can change that in
+[Requests without a rule](#requests-without-a-rule). With no allowed hosts, Map Local mocks
+nothing.
 
-### Register it once
+### Registering the plugin once
 
 Necto rejects a second plugin with the same ID (`io.github.ryan-son.maplocal`) in every
-build, and asserts in debug. To replace it at runtime, call
+build. In Debug builds it also fails an assertion. To replace the plugin at runtime, call
 `NectoSDK.unregister(id: "io.github.ryan-son.maplocal")` first.
 
-Creating the plugin again is harmless, but changes nothing. The engine, its configuration
-and its blocked hosts are set up once per process. A later
-`NectoMapLocalPlugin(blockedHosts:)` keeps the blocked hosts of the first one.
+Creating the plugin again is harmless, but changes nothing. Map Local sets up its engine
+(the code that decides what each request gets), its configuration and its
+[hosts blocked in app code](#allowed-hosts) once per process. A later
+`NectoMapLocalPlugin(blockedHosts:)` call keeps the `blockedHosts` of the first call.
+
+## Allowed hosts
+
+Map Local mocks only requests to an allowed host.
+
+- **With no allowed hosts, Map Local mocks nothing.** To add a host, type or paste a host
+  or URL into the "+ Host" field in the panel header and press Return. Mocking a request
+  from the "Traffic" tab adds its host too.
+- **Write internationalized domain names (IDN) in punycode.** The engine receives a Unicode
+  request host percent-encoded, so an allowed host such as `한국.kr` never matches any
+  request. The "+ Host" field does not add such a host. It shows "Enter a Unicode host as
+  punycode (xn--…)". For `한국.kr`, enter `xn--3e0b707e.kr`.
+- **List production server hosts in app code to keep them from being mocked.** With
+  `NectoMapLocalPlugin(blockedHosts: ["api.example.com"])`, Map Local never mocks those
+  hosts, even when they are allowed hosts. It ignores the scheme, port and case of each
+  entry, and the panel cannot change the list. These docs call them hosts blocked in app
+  code. **The list does not stop the requests.** They still go to the real server. It
+  keeps the production server from being mocked, not from being reached.
+
+## Requests without a rule
+
+"Requests without a rule" in the panel decides what a request to an allowed host gets when
+no rule answers it. Requests to other hosts, and to hosts blocked in app code, always go to
+the real server.
+
+- "Send to the real server" (the default): the request goes to the real server.
+- "Block (421)": the request gets 421. This stops a mocked token from being sent to the real
+  server with a request that no rule answers, where it would get a 401 and could force a
+  logout. Recommended when you mock authentication (see [Auth rule](#auth-rule)).
+- "No internet connection (-1009)", "Connection lost (-1005)" or "Timed out (-1001)": the
+  request fails with that `URLError`, as if the server were out of reach. A rule that
+  matches a request still answers it, so turn off any rule whose requests should fail too.
+  The request fails at once, even with "Timed out". To make a request fail late, set the
+  "Network error" of a rule's response to that error and give the response a "Delay (ms)".
+  The device's own network state (`NWPathMonitor`) does not change.
 
 ## Matching rules
 
-A rule responds when all of these match:
+A rule answers a request when all of these match:
 
-- **Method.**
-- **Host.** Empty means every allowed host.
+- **Method.** The request's HTTP method equals the rule's.
+- **Host.** The request's host equals the rule's. A rule with an empty host matches every
+  allowed host. Either way, the request's host must be an [allowed host](#allowed-hosts).
 - **Path.** A segment like `{id}` matches any non-empty segment. Write the path
   percent-encoded, as the app sends it: `%20`, not a space.
 - **Query conditions.** See below.
@@ -45,53 +85,60 @@ A rule responds when all of these match:
 
 Query conditions are the key=value rows under "Query conditions" in the editor. They match
 when every listed key is present with exactly that value. Keys not listed are ignored.
-Values are compared after percent-decoding; `+` is kept as is. No conditions means "Any
-query".
+Values are compared after percent-decoding, and `+` is not turned into a space. No
+conditions means "Any query".
 
 The rule list shows the conditions, like `GET /api/sites ?page=2`, so rules for the same
 path are easy to tell apart.
 
 A rule created from traffic has no query conditions. Check "Only with this query" to copy
-the request's query into the conditions. The checkbox is absent when a matching rule
-already exists, because the response is then added to that rule.
+the request's query into the conditions. The checkbox does not appear when a matching rule
+already exists, because the panel then adds the response to that rule.
 
 ### When several rules match
 
-The rule with more query conditions responds. On a tie, the one higher in the list does.
-When a rule that is on shares requests with another rule that is on, its editor says under
-the query conditions which rule answers them, a third rule included when it takes them from
-both.
+The rule with more query conditions answers. On a tie, the one higher in the list does.
+When two rules that are on can match some of the same requests, each rule's editor says,
+under its query conditions, which rule answers those requests. If a third rule takes those
+requests from both, the editor names that third rule instead.
 
 ## The traffic tab
 
 The panel has two tabs, "Rules" and "Traffic". It follows Necto's language setting, English
 or Korean.
 
-The traffic tab lists the app's requests, grouped by endpoint ("Endpoints") or in time
+The "Traffic" tab lists the app's requests, grouped by endpoint ("Endpoints") or in time
 order ("By time"), with the result of each one. You can filter by status, by result
 ("Mocked", "Real server", "Blocked", "Unknown"), or to "Allowed hosts only". The search
 field matches the method, the host, the path and the query string the app sent
 (`page=2`, `siteId=101`).
 
-In the time view, a selected request stays where it is while new ones arrive above it. The
-line above the list counts them, and "Show newest" goes to the latest. "Pause" freezes the
-list.
+In the "By time" view, a selected request stays where it is while new ones arrive above it.
+The line above the list counts them. Press "Show newest" to go to the latest, or "Pause" to
+freeze the list.
 
 Select a request to see its response, then turn it into a rule:
 
-1. Press "Mock with this response". When the response cannot be seen, the button is "Mock
-   with an empty response". Mocking also adds the request's host to the allowed hosts, as
-   the line under the button says.
+1. Press "Mock with this response". When the response cannot be seen, for example without
+   [Necto's network plugin](#capturing-real-responses), the panel offers "Mock with an empty
+   response" instead, or "Open rule" when a rule already matches the request. Mocking also adds the request's host to the allowed hosts, as the line under
+   the button says.
 2. Edit the response in the "Rules" tab.
 
-To allow a host without mocking anything yet, type or paste a host or URL into the
-"+ Host" field in the panel header and press Return.
+The same job with every step, through checking the result in the app, is in
+[recipes.md](recipes.md#see-a-screen-with-different-data).
 
-When a rule matches a request that was not mocked, the detail says why in one line. When a
-rule mocked a request for every query, "Rule for this query only" beside "Open rule" makes a
-rule with the request's query as conditions, starting with the response the app gets now.
-A rule made from traffic with query conditions is followed until it first answers: a later
-request it fits but for its query says which condition failed, with the fix beside it.
+When a rule matches a request that was not mocked, the traffic detail says why in one line.
+Each reason and its fix are in
+[troubleshooting.md](troubleshooting.md#why-a-request-wasnt-mocked).
+
+When the rule that mocked a request does not check every key in the request's query, press
+"Rule for this query only", beside "Open rule". It makes a rule whose query conditions are
+the request's query, starting with the response the app gets now.
+
+After you make a rule from traffic with query conditions, the panel watches that rule until
+it first answers a request. If a later request matches the rule except for its query, the
+traffic detail says which condition failed and shows the fix beside it.
 
 ### Capturing real responses
 
@@ -110,76 +157,71 @@ NectoSDK.start()
 #endif
 ```
 
-The order matters (measured):
+The order matters (measured with Necto 0.2.0):
 
-- With Map Local first, mocked requests appear in the traffic tab with the mocked response.
-  Each request is logged once.
-- With the network plugin first, mocked requests disappear from the traffic tab, and
-  passthrough requests are logged twice. The panel shows a warning when it sees this.
+- With Map Local first, mocked requests appear in the "Traffic" tab with the mocked
+  response. Each request is logged once.
+- With the network plugin first, mocked requests disappear from the "Traffic" tab, and
+  requests that go to the real server are logged twice. The panel shows a warning when
+  mocked requests are missing from Necto's records, or when requests that go to the real
+  server are logged twice.
 - Without the network plugin, the tab still lists requests, but you cannot see responses.
   A rule created from a request gets an empty 200 JSON response.
 
-The cost: the Necto observer resends requests with `URLSession(configuration: .ephemeral)`.
-That bypasses the app session's delegate (auth challenges, pinning), the shared cookies and
-URLCache. Capturing is optional.
+The cost: the network plugin resends each request with
+`URLSession(configuration: .ephemeral)`. The resent request skips the app session's
+delegate (auth challenges, pinning), the shared cookies and URLCache. Capturing is
+optional.
 
-This relies on behaviour Necto does not document. The panel calls bridges that belong to
-another plugin: `necto.device.network-records.*`, from Necto's network plugin. Necto 0.2.0
-routes them, but its bridge docs describe app bridges as scoped to one plugin. The panel
-checks availability on every connection, and shows Necto's reason when the records are
-unavailable. The rules tab keeps working without them. A future Necto release could change
-this.
-
-## Allowed and blocked hosts
-
-- **No allowed hosts, nothing mocked.** Add a host with the "+ Host" field. Mocking a
-  request from the traffic tab adds its host too.
-- **Write Unicode (IDN) hosts in punycode.** The engine receives a Unicode request host
-  percent-encoded, so allowing `한국.kr` never matches any request. The "+ Host" field does
-  not add such a host. It says "Enter a Unicode host as punycode (xn--…)", for example
-  `xn--3e0b707e.kr`.
-- **Block production hosts in app code.** With
-  `NectoMapLocalPlugin(blockedHosts: ["api.example.com"])`, those hosts are never mocked.
-  Scheme, port and case are ignored, and the panel cannot change the list. **It does not
-  block the requests.** They still go to the real server, unmocked. It guards against
-  mocking production, not against reaching it.
-- **Block or fail requests without a rule.** "Requests without a rule" in the panel decides
-  what an unmocked request to an allowed host gets; other hosts always pass through.
-  - "Block (421)": the request gets 421. This keeps a fake token from riding on an unmocked
-    real-server request and causing a 401 or a forced logout. Recommended when you mock
-    authentication.
-  - "No internet connection (-1009)", "Connection lost (-1005)" or "Timed out (-1001)": the
-    request fails with that `URLError`, as if the server were out of reach. Rules still
-    answer, so turn off the ones that should fail too. The request fails at once, even
-    "Timed out"; for a late failure, give a rule's response that error and a delay. The
-    device's own network state (`NWPathMonitor`) does not change.
+Capturing relies on behavior that Necto does not document. The panel calls bridges that
+belong to another plugin: `necto.device.network-records.*`, from the network plugin.
+Necto 0.2.0 routes them, but Necto's bridge docs describe app bridges as scoped to one
+plugin. The panel checks availability on every connection, and shows Necto's reason when
+the records are unavailable. The "Rules" tab keeps working without them. A future Necto
+release could change how these bridges are routed.
 
 ## Auth rule
 
 Turn on "Auth rule" ("A response that hands out a login or token") for rules that answer a
-login or a token request. When such a rule responds, the app badge shows `Map Local 🔑`,
-and the panel shows an "I've logged out" confirmation. When you turn the rule off or delete
-it, you are told to log out of the app first.
+login or a token request.
+
+After such a rule answers, the app may hold the mocked token. These docs call that a
+*mocked session*. Map Local remembers it, across relaunches, until you log out in the app
+and press "I've logged out" in the panel. While a mocked session may remain:
+
+- while Map Local is on, the app badge shows `Map Local 🔑`. Turning Map Local off hides
+  the badge, but the mocked session remains;
+- the panel shows a notice with the "I've logged out" button;
+- the panel tells you to log out of the app first when you turn off or delete an auth
+  rule. It does the same when an auth rule that is on answers an allowed host and you turn
+  Map Local off or remove that host.
+
+To keep a mocked token from reaching the real server with requests that no rule answers,
+also set [Requests without a rule](#requests-without-a-rule) to "Block (421)".
 
 ## The badge
 
-The app shows a small `Map Local` pill whenever something applies:
+The app shows a small `Map Local` badge while Map Local is on and one of these applies:
 
-- an enabled rule answers an allowed host;
-- requests without a rule are blocked or failed;
-- or a mocked session may remain.
+- a rule that is on answers requests to an allowed host;
+- "Requests without a rule" is set to "Block (421)" or an error, and there is an allowed
+  host;
+- or a [mocked session](#auth-rule) may remain.
 
-When nothing applies, the app shows nothing.
+When none of these applies, or Map Local is off, the app shows nothing.
 
-The pill sits beside the home indicator, at the bottom right. On devices with a Home
-button, it sits in the status bar. Only the pill takes touches; everything else reaches the
-app. It hides while the keyboard is up. VoiceOver reads it as a button.
+The badge sits beside the home indicator, at the bottom right. On devices with a Home
+button, it sits in the status bar, where it shows but may not take taps; turn Map Local off
+from the panel there. Only the badge takes touches; everything else reaches
+the app. It hides while the keyboard is up. VoiceOver reads it as a button.
 
-### Turning it off from the app
+### Turning Map Local off from the app
 
-Tap the badge to see what applies: up to three rules, named as the panel names them, and
-blocking. "Turn off Map Local" writes the same switch as the panel, so the panel follows.
-If a mocked session may reach the real server, it reminds you to log out first.
+Tap the badge to open a sheet that lists what applies: how many rules answer requests, up
+to three of them named as the panel names them, what requests that no rule answers get, and
+whether a mocked session may remain. "Turn off Map Local" in the sheet flips the same switch
+as the panel's "Map Local on", so the panel follows. If a mocked session may reach the real
+server, the sheet tells you to log out of the app first.
 
 The sheet follows the device language: Korean when the device prefers Korean, English
 otherwise.
@@ -191,7 +233,7 @@ Deleting a rule or a response does not ask first. It offers "Undo" instead.
 Necto keeps ⌘Z (Undo in the Edit menu) and Esc for itself; they never reach the panel. So
 undo, close and clear always have a visible button: "Undo", × and ⓧ.
 
-Keys that work in the panel. ↑↓, Return, ⌘↩ and `/` were measured in Necto 0.2.0.
+These keys work in the panel. We measured ↑↓, Return, ⌘↩ and `/` in Necto 0.2.0.
 
 | Key | Action |
 | --- | --- |
@@ -212,22 +254,28 @@ Keys that work in the panel. ↑↓, Return, ⌘↩ and `/` were measured in Nec
   the request log carry tokens, cookies and passwords unchanged, as Necto's own network
   records do.
 - **Copying warns, but never changes values.** The panel shows a one-line warning when the
-  copied configuration contains any of these: a JWT-looking value; a rule tagged `auth`; an
-  Authorization, Cookie or Set-Cookie header value; or a value under a response header,
-  query condition key or JSON body key named like token, secret, password, api key or
-  session. Check before you share or commit it.
+  copied configuration contains any of these:
+  - a value that looks like a JSON Web Token (JWT);
+  - a rule tagged `auth` (an auth rule);
+  - the value of an Authorization, Cookie or Set-Cookie response header;
+  - a non-empty text or number value under a response header, query condition key or JSON
+    body key whose name contains `token`, `secret`, `password`, `apikey` (also `api-key`,
+    `api_key`) or `session` (case-insensitive).
+
+  Check the configuration before you share or commit it.
 
 ## Known limitations
 
 These were measured on an iOS 26.4 simulator with Necto 0.2.0.
 
-- **Sessions and configurations obtained before `NectoSDK.register` are not intercepted.**
-  Registering puts Map Local in front of `URLSession.shared` and of every
-  `URLSessionConfiguration.default` or `.ephemeral` read afterwards. A configuration read
-  earlier keeps its old list, and so does every session built from it. `URLSession.shared`
-  is covered even when it was used first. Put the registration at the earliest point of
-  app startup, such as `App.init` or `application(_:willFinishLaunchingWithOptions:)`.
-- **A configuration whose `protocolClasses` is replaced outright loses Map Local.**
+- **Sessions created, and session configurations read, before `NectoSDK.register` are not
+  intercepted.** Registering puts Map Local in front of `URLSession.shared`, and first in
+  the `protocolClasses` list of every `URLSessionConfiguration.default` or `.ephemeral`
+  read afterwards. A session configuration read earlier keeps its old `protocolClasses` list,
+  and so does every session created from it. `URLSession.shared` is covered even when it
+  was used first. Put the registration at the earliest point of app startup, such as
+  `App.init` or `application(_:willFinishLaunchingWithOptions:)`.
+- **A session configuration whose `protocolClasses` is replaced outright loses Map Local.**
   `config.protocolClasses = [MyProtocol.self]`, as some SDKs do, drops the list Map Local
   was in. Adding to the existing list, at the front or the back, is fine. To restore it, put
   `NectoMapLocalPlugin.protocolClass` in front after the list is set:
@@ -238,17 +286,18 @@ These were measured on an iOS 26.4 simulator with Necto 0.2.0.
   #endif
   ```
 
-  A configuration that lists `protocolClass` is intercepted whenever it was made, even
-  before the plugin is registered, so this also fixes a session that must exist early.
-- **Libraries built on `URLSession` (e.g. Alamofire, Moya) work under the same
-  conditions.** Map Local must be registered before their session is created, and a
-  configuration whose `protocolClasses` is replaced needs `NectoMapLocalPlugin.protocolClass`
-  prepended. A shared session such as Alamofire's `AF` is created the first time anything
-  uses it, so it is a session from before registration if anything reaches it earlier.
+  Map Local intercepts a session whose configuration lists `protocolClass`, whenever that
+  configuration was created, even before the plugin is registered. So this also fixes a
+  session that must exist early.
+- **Libraries built on `URLSession`, such as Alamofire and Moya, need the same two things.**
+  Register Map Local before the library creates its session. If the library replaces
+  `protocolClasses`, put `NectoMapLocalPlugin.protocolClass` in front. A shared session such
+  as Alamofire's `AF` is created the first time any code uses it. If that first use happens
+  before `NectoSDK.register`, Map Local does not intercept the session.
 - **Background sessions are not intercepted.** Transfers on
   `URLSessionConfiguration.background(withIdentifier:)` run in a system process outside the
-  app, which never consults the app's `URLProtocol`. Use a foreground session in Debug
-  builds, or point the transfer at a mock server.
+  app, and that process never consults the app's `URLProtocol`. Use a foreground session in
+  Debug builds, or point the transfer at an external mock server.
 - **`WKWebView` is not intercepted**: page loads, `fetch` and `XMLHttpRequest` alike.
   WebKit does its own networking in a separate process.
 - **A mocked 3xx is returned as is, not followed.** The app receives the 3xx with its
@@ -256,22 +305,11 @@ These were measured on an iOS 26.4 simulator with Necto 0.2.0.
   rule matches is mocked on that hop: the server answers the first request and the rule
   answers the redirected one.
 - `Set-Cookie` on a mocked response always goes into **`HTTPCookieStorage.shared`**, not
-  the session's own cookie storage. No public API reaches the session's storage. With an
-  ephemeral session or a separate cookie storage, the mocked cookie is not reflected in that
-  session, and it stays in the shared storage. After you turn Map Local off, it can ride on
-  a real request from a session that uses the shared storage.
-- It can hide changes to the server's contract. Checking the contract is a job for other
-  tools.
-
-## Troubleshooting
-
-| Symptom | Check |
-| --- | --- |
-| A rule doesn't match | Is the host in the allowed hosts? Is it not a blocked host? Is the result in the traffic tab "Real server"? A dimmed host in the row means it is not an allowed host |
-| The panel shows "Waiting for the app to connect…" | Is the app running as Debug, and did you select that app in Necto? |
-| `module<NectoMapLocalPlugin>` compile error | The [configuration name rule](release-builds.md) |
-| Every request to an allowed host gets 421 | "Requests without a rule" is set to "Block". Add the rules you need, or set it to "Send to the real server" |
-| Every request to an allowed host fails as offline (-1009, -1005 or -1001) | "Requests without a rule" is set to an error. Add the rules you need, or set it to "Send to the real server" |
-| The traffic detail says a matching rule didn't mock a request | Follow its one-line reason: Map Local off, host not allowed, rule off, or a host blocked in app code (never mocked) |
-| The app doesn't appear in Necto | Several builds of one app (a Dev and a production flavour, say) can sit side by side. Launch the build whose code registers the plugin |
-| Requests from a fresh install reach production | The app's own default may point to production until you switch its server environment. `blockedHosts` keeps production from being mocked, but still lets those requests through |
+  the session's own cookie storage, when the request handles cookies
+  (`httpShouldHandleCookies`, on by default). No public API lets Map Local write to the session's
+  storage. With an ephemeral session or a separate cookie storage, that session does not
+  get the mocked cookie, and the cookie stays in the shared storage. After you turn Map
+  Local off, a session that uses the shared storage can send the mocked cookie with real
+  requests.
+- Map Local can hide changes to the server's API contract. Use other tools to check the
+  contract.

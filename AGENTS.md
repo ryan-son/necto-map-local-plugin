@@ -49,6 +49,8 @@ Fixtures/                       Cases shared by the Swift and TypeScript tests
 Examples/                       QuickStart and SeparateProject sample apps, used by CI
 script/                         Build, CI and release verification scripts
 docs/usage.md                   Using the panel: matching, traffic, hosts, badge, keyboard
+docs/recipes.md                 A short path for each common job
+docs/troubleshooting.md         Symptoms, and why a request wasn't mocked
 docs/release-builds.md          Keeping Necto out of release builds, and blocking in CI
 docs/cli.md                     Import, export, necto-cli operations and the error model
 docs/experience.md              What the panel is for and how it must behave
@@ -70,7 +72,7 @@ SECURITY.md                     How to report a vulnerability
   `Panel/dist`. Do not edit it by hand.
 - **Swift and TypeScript read the same fixtures.** `Fixtures/matcher-cases.json`,
   `Fixtures/path-cases.json` and `Fixtures/host-cases.json` are the single table for rule
-  matching, rule path validation and host normalisation. `Tests/MapLocalCoreTests/SharedFixtureTests.swift`,
+  matching, rule path validation and host normalization. `Tests/MapLocalCoreTests/SharedFixtureTests.swift`,
   `Panel/tests/traffic/fixtures.test.ts` and `Panel/tests/hosts.test.ts` all read them.
   Change matching or host rules on both sides together, add the case to the fixture, and
   never fork a case into one side's tests.
@@ -79,7 +81,7 @@ SECURITY.md                     How to report a vulnerability
   Read it before changing anything a user sees, and update it, with its Korean copy
   `docs/experience-ko.md`, when a decision changes.
 - **Measure in Necto before claiming a fix.** jsdom is not WebKit, and the host keeps some
-  keys (⌘Z, Esc) for itself. Say so when a behaviour was verified only in tests.
+  keys (⌘Z, Esc) for itself. Say so when a behavior was verified only in tests.
 - **A contract is a schema.** The panel and the app talk through the operations in
   `Panel/public/manifest.json`. Changing an operation's input or output is a wire change,
   not a refactor.
@@ -89,15 +91,15 @@ SECURITY.md                     How to report a vulnerability
   copy sits next to its document with the `-ko.md` suffix. `script/check-doc-links` fails
   on a relative link that does not resolve.
 - **Test counts are a check.** A refactor keeps `swift test` and `npx vitest run` at the
-  same number of tests. Report both when a change is meant to preserve behaviour.
+  same number of tests. Report both when a change is meant to preserve behavior.
 
 ## Reference
 
 - **Landing page**: [README.md](README.md)
-- **Using the panel and troubleshooting**: [docs/usage.md](docs/usage.md)
+- **Using the panel**: [docs/usage.md](docs/usage.md); **troubleshooting**: [docs/troubleshooting.md](docs/troubleshooting.md)
 - **Release setup and CI blocking**: [docs/release-builds.md](docs/release-builds.md)
 - **Import, export and the CLI contract**: [docs/cli.md](docs/cli.md)
-- **Panel experience and measured host behaviour**: [docs/experience.md](docs/experience.md)
+- **Panel experience and measured host behavior**: [docs/experience.md](docs/experience.md)
 - **Design decisions and their reasons**: [docs/design.md](docs/design.md)
 - **Per-release verification**: [docs/verification-log.md](docs/verification-log.md)
 - **Necto's own rules**, which this plugin follows: the Necto repository's `AGENTS.md`

@@ -13,7 +13,7 @@ The user is an iOS developer or QA engineer with the simulator (or a device) and
 ## Principles
 
 1. **One with Necto (host consistency)** — The user has already learned the Necto Network panel right next door. What is the same there is the same here.
-   - Measured (Necto 0.2.0 Network panel): a table with column headers, a coloured dot before the status code (green for 2xx, red for failures and 5xx), ↑↓ to move between rows, an accent bar on the left of the selected row, the detail in a split on the right with tabs (Summary, Request, Response, cURL) and ×, and a filter field "Filter by method, host or path" with a count and "Clear".
+   - Measured (Necto 0.2.0 Network panel): a table with column headers, a colored dot before the status code (green for 2xx, red for failures and 5xx), ↑↓ to move between rows, an accent bar on the left of the selected row, the detail in a split on the right with tabs (Summary, Request, Response, cURL) and ×, and a filter field "Filter by method, host or path" with a count and "Clear".
    - ⌘F is the host's "Find in panel" — **do not intercept it.** The host offers no context menu either (only "Reload") — do not build one.
 2. **The whole loop from the keyboard** — ↑↓ to move in a list (as in Necto), ⇞⇟/Home/End, Return = focus the detail's primary action, Esc = step back once (clear input → clear selection), Tab order list ↔ detail ↔ filter, and a shortcut for the primary action ("Mock with this response") shown on its button. Focus is always visible.
    - Measured (Necto 0.2.0 WKWebView, 2026-10-04): ↑↓, Return, ⌘↩ and `/` reach the panel. **⌘Z (Undo in the Edit menu) and Esc are taken by the host and never reach the panel.** So undo, close and clear always have a visible button (Undo, ×, ⓧ) as the main path, and the keys are a bonus. With WebKit's defaults Tab skips buttons, so the loop's controls get `tabindex="0"`.
@@ -23,7 +23,7 @@ The user is an iOS developer or QA engineer with the simulator (or a device) and
 5. **Nothing jumps** — New data, banners and filter changes never push the list or lose the scroll position or selection. Keep the user's place. The header keeps two rows whatever it holds, so adding a host never moves the lists (measured: it moved them 25 px before).
 6. **Every width has a purpose** — narrow (<640): one thing at a time (list or detail, stacked). Medium (640–1100): list and detail side by side. Wide (>1100): give the room to the detail (the body is the star). Both tabs (rules and traffic) follow the same rule.
 7. **It remembers** — The view mode, the tab, the split width and the filters are remembered per viewer (localStorage; everything still works when it fails).
-8. **Words people read** — The user's words instead of internal identifiers or English jargon. Truncated text shows in full on hover. Each colour has one meaning (mocked = purple, real server = grey, blocked = orange, failure/5xx = red, 4xx = yellow, 2xx = green).
+8. **Words people read** — The user's words instead of internal identifiers or English jargon. Truncated text shows in full on hover. Each color has one meaning (mocked = purple, real server = gray, blocked = orange, failure/5xx = red, 4xx = yellow, 2xx = green).
 9. **Accessibility** — roles (listbox/option, tablist/tab), aria-selected/pressed matching what is on screen, contrast, and respect for the Reduce Motion setting.
 10. **The app says when it is not talking to the real server, and nothing otherwise** — While Map Local is on, its rules apply, with or without Necto. The app shows a badge exactly when something applies, and tapping it is the way out: it says what applies and turns Map Local off. When nothing applies, the app shows nothing.
 
@@ -40,16 +40,18 @@ The user is an iOS developer or QA engineer with the simulator (or a device) and
 | ⑦ Sharing | "Copy configuration" and "Paste configuration" mean what their names say, and report the result |
 | ⑧ A flood | The selection stays put while the list keeps flowing, the line above the list counts what came after it under the current filters, and "Show newest" catches up in one action. A list too short to scroll moves the selection down a row per arrival, so the new request is in view. "Pause" freezes the list. (Selecting used to pause the time view; the first-use test found that hid the request just made in the app) |
 
-## Visual language (2026-10-04, "hold up next to Necto Network")
+## Visual language
+
+Decided on 2026-10-04. The aim: "hold up next to Necto Network".
 
 Basis: our panel already imports `@necto/bridge`'s theme.css and components.css (Panel/src/style.css:1-2). Every component the Necto Network panel uses is in there, yet we use little beyond `necto-button/field/tab`. **Use the host's components first, and add only our own domain (mocked, blocked) on top.**
 
-- **Necto components to use**: `necto-table` (sticky header, 26px rows, hover/selection plus the accent bar on the left of the selected row), `necto-status-{ok,info,warning,danger,idle}` (coloured dot plus mono numerals), `necto-segmented` (view switch), `necto-badge`, `necto-pairs` (detail summary), `necto-tabs` (detail: Summary, Request, Response), `necto-empty`, `necto-notice` (banners), `necto-code-copy` (copying a body), `necto-resize` (split width), `necto-switch`, `necto-numeric`, and the `:focus-visible` ring.
-- **Two axes, two languages**: the HTTP status uses coloured dots exactly as Necto does (2xx success · 3xx info · 4xx warning · 5xx and connection failure danger · in progress idle). The **result** uses pill badges of a different shape, so it never mixes with the status colours.
+- **Necto components to use**: `necto-table` (sticky header, 26px rows, hover/selection plus the accent bar on the left of the selected row), `necto-status-{ok,info,warning,danger,idle}` (colored dot plus mono numerals), `necto-segmented` (view switch), `necto-badge`, `necto-pairs` (detail summary), `necto-tabs` (detail: Summary, Request, Response), `necto-empty`, `necto-notice` (banners), `necto-code-copy` (copying a body), `necto-resize` (split width), `necto-switch`, `necto-numeric`, and the `:focus-visible` ring.
+- **Two axes, two languages**: the HTTP status uses colored dots exactly as Necto does (2xx success · 3xx info · 4xx warning · 5xx and connection failure danger · in progress idle). The **result** uses pill badges of a different shape, so it never mixes with the status colors.
   - Mocked = `--ml-mock` purple (light fill plus text), blocked = `--ml-block` orange (light fill plus text), real server = tertiary text with no fill (the default stays quiet), unknown = tertiary text with a dashed border.
   - Principle: **the default is quiet and the exceptions stand out** — scanning the list, only mocked, blocked and errors catch the eye (preattentive processing).
 - **New tokens sit in the same contrast band as Necto's palette** (measured in Necto: light 5.6–6.5:1, dark 6.1–7.8:1). Candidates: `--ml-mock` light #7b3fd0 (6.06) / dark #b691ff (6.89), `--ml-block` light ≈#a24a12 / dark #f0904a (7.14). A test pins ≥4.5:1 in both light and dark.
-- **Extras**: the duration of a slow response (≥1s) in the warning colour; methods in a single colour as in Necto (colour is only for results and status — do not give colour a second meaning).
-- **Start times are fixed, not localised**: `HH:MM:SS.mmm` in local time, as in Necto's Network panel. A locale's clock ("12:46:21 PM") is wider than the column and harder to compare down a list.
+- **Extras**: the duration of a slow response (≥1s) in the warning color; methods in a single color as in Necto (color is only for results and status — do not give color a second meaning).
+- **Start times are fixed, not localized**: `HH:MM:SS.mmm` in local time, as in Necto's Network panel. A locale's clock ("12:46:21 PM") is wider than the column and harder to compare down a list.
 - **Empty lists use `necto-empty`**: the traffic list says "No requests yet" when nothing has arrived, and "No requests match the filters" with [Clear filters] when the filters hide everything — never "no requests" over requests that are only hidden (principle 8).
 - **Measure light mode too** (Necto's theme setting, or `data-theme`).

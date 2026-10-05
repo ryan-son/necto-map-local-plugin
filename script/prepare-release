@@ -50,11 +50,11 @@ if [ "$headings" != 1 ]; then
   exit 1
 fi
 
-# The download URLs in "Blocking in CI" name a version; a release must not point users at
+# The download URLs in "Block a release in CI" name a version; a release must not point users at
 # another one.
 for doc in docs/release-builds.md docs/release-builds-ko.md; do
   if ! command grep -qF "/releases/download/$tag" "$root/$doc"; then
-    echo "$doc does not download from $tag. Update its 'Blocking in CI' URL."
+    echo "$doc does not download from $tag. Update its 'Block a release in CI' URL."
     exit 1
   fi
 done

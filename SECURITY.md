@@ -11,20 +11,22 @@ This opens a private advisory that only the maintainers can see. Do not open a p
 for it.
 
 Do not include captured traffic, tokens, cookies, passwords or a copied configuration that
-holds them. The panel keeps these values as they are, so a capture or an export from a real
+holds them. The panel does not mask these values, so a capture or an export from a real
 app can carry live credentials. Describe the problem with made-up values instead.
 
 Include the plugin version, the Necto version (Mac app and SDK), Xcode and iOS versions,
-and whether the app runs on a simulator or a device over USB. Check the latest release when
-it is safe to do so; support for older releases is not guaranteed.
+and whether the app runs on a simulator or a device over USB. If you can do so safely, check
+whether the problem also occurs on the latest release. Support for older releases is not
+guaranteed.
 
 Map Local is a debug tool, not for production. Keep it out of the builds you ship:
 
 - Linking the package grants its panel full access to the plugin's device bridges,
   including every request record. Add it only to builds you control.
-- Rules apply whenever Map Local is on, with or without Necto.
-- `blockedHosts` keeps production from being mocked. It does not keep requests from
-  reaching production.
+- Rules apply whenever Map Local is on, even after a relaunch and while the Necto app is
+  closed.
+- `blockedHosts` keeps the production server from being mocked. It does not keep requests
+  from reaching the production server.
 
-See [What the panel can see](docs/usage.md) and
+See [What the panel can see](docs/usage.md#what-the-panel-can-see) and
 [Keeping Map Local out of release builds](docs/release-builds.md).

@@ -66,8 +66,10 @@ Ask three questions and write the answers down as said:
 
 ## Record template
 
+Paste it under the release's `##` entry in [verification-log.md](verification-log.md).
+
 ```markdown
-## First-use test — <date>, build <commit>
+### First-use test — <date>, build <commit>
 
 Tester: <role, Necto experience>. App: <kind of app, not its name>.
 

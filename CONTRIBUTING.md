@@ -6,7 +6,7 @@ Thank you for your interest in Map Local for Necto.
 
 ## Reference
 
-- The rules a change must survive — [AGENTS.md](AGENTS.md)
+- The rules every change must follow — [AGENTS.md](AGENTS.md)
 - How the panel must behave — [docs/experience.md](docs/experience.md)
 - Why the plugin is built the way it is — [docs/design.md](docs/design.md)
 - Using the plugin — [docs/usage.md](docs/usage.md)
@@ -19,13 +19,15 @@ Thank you for your interest in Map Local for Necto.
 Write code, comments, test names, documentation and commit messages in English.
 Documentation may include a Korean translation.
 
-A Korean copy sits next to its document as `X-ko.md`, and the two change together.
+A Korean copy is next to its document as `X-ko.md`, and the two change together.
 `script/check-doc-pairs` fails when a pair differs in its headings (count and levels), its
 number of code blocks, or its link targets. A Korean copy links to Korean copies where the
-English links to English ones; the check reads them as the same target. Korean documents
-are written in 해요체, in short, plain sentences, as Necto's Korean documents are; Korean UI
-strings (the panel's dictionary and the in-app badge) use 합니다체, as Necto's built-in
-plugins do. `script/check-doc-links` fails on a relative link that does not resolve.
+English links to English ones; the check reads them as the same target.
+`script/check-doc-links` fails on a relative link that does not resolve.
+
+Write Korean documents in 해요체, the polite informal style, in short, plain sentences, as
+Necto's Korean documents are. Korean UI strings (the panel's dictionary and the in-app
+badge) use 합니다체, the formal style, as Necto's built-in plugins do.
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/), as
 Necto's do: a lowercase imperative summary with an optional scope, such as
@@ -52,11 +54,24 @@ device or simulator), and steps to reproduce. Report a vulnerability privately, 
    script/ci
    ```
 
-   It checks the release-exclusion guard, that workflow actions are pinned to commits,
-   and that documents and their Korean copies match and their links resolve. It tests and
-   builds the panel, checks that the committed `EmbeddedPanel.swift`
-   matches the panel source, runs `swift test`, and archives the example apps to prove
-   the release build carries no trace of the plugin.
+   It runs every check that continuous integration (CI) runs, in this order:
+
+   - Every Swift file under `Sources/` and `Tests/` is wrapped in `#if MAP_LOCAL_ENABLED`,
+     so Release builds compile none of it (`script/lint-guard`).
+   - Every action the workflows use is pinned to a full commit SHA
+     (`script/lint-workflows`).
+   - Each document and its Korean copy match, and their relative links resolve
+     (`script/check-doc-pairs`, `script/check-doc-links`).
+   - The panel's tests pass and the panel builds (`script/build-panel`). Then `script/ci`
+     checks that the committed `EmbeddedPanel.swift` is unchanged by that build, so
+     running `script/build-panel` alone rewrites the file and does not check it.
+   - `swift test` passes.
+   - The check scripts themselves pass their tests against fake apps and repositories
+     (`script/test-verify-release`).
+   - The example apps are archived, and each archive passes or fails
+     `script/verify-release` as expected, so a Release build is proven to carry no trace
+     of the plugin (`script/verify-controls`).
+
    If you changed the panel, run `script/build-panel` and commit the regenerated
    `Sources/NectoMapLocalPlugin/EmbeddedPanel.swift`.
 
@@ -72,34 +87,41 @@ swift test                    # Swift tests (macOS)
 script/ci                     # everything CI runs, including the release archive checks (Xcode 26 or later)
 ```
 
-The panel is embedded in the Swift module as base64 strings, not shipped as a resource
-bundle, so a release build carries no trace of it and `script/verify-release` can prove
-that. [docs/design.md](docs/design.md) explains why, under "The panel rides inside the
-Swift module".
+The panel is embedded in the Swift module as base64 strings. It is not shipped as a
+resource bundle, so a release build carries no trace of it, and `script/verify-release`
+can prove that. [docs/design.md](docs/design.md) explains why, under "The panel rides
+inside the Swift module".
 
 ### Dependencies are not pinned
 
 `Package.resolved` is not committed, as in Necto's device plugin template. This is a
-library: SwiftPM ignores a dependency's `Package.resolved`, so an app resolves `necto` and
-`swift-clocks` from the ranges in `Package.swift`, whatever this repository pins. Leaving
-the file out makes `swift test` here resolve the same way an app does, so CI tests what
-apps get. The weekly `script/check-necto-latest` job covers Necto releases beyond the
-declared range. The panel is different: `Panel/package-lock.json` is committed and
-`npm ci` installs from it, because the built panel ships inside the package and must be
-reproducible.
+library, and Swift Package Manager (SwiftPM) ignores a dependency's `Package.resolved`. An
+app resolves `necto` from the range in `Package.swift`, even if this repository committed a
+`Package.resolved`. It does not fetch `swift-clocks` at all, because only the tests use it. Without a committed file, `swift test` here
+resolves the same way an app does, so CI tests what apps get. The weekly
+`script/check-necto-latest` job covers Necto releases beyond the declared range.
+
+The panel is different: `Panel/package-lock.json` is committed, and `npm ci` installs from
+it. The built panel ships inside the package, so its build must be reproducible.
 
 Locally, SwiftPM still writes a `Package.resolved` (ignored by git) and keeps using it, so
 a local `script/ci` can test an older Necto than CI resolves. Run `swift package update`
-first when a local result has to stand for CI's.
+first if the local result must match what CI resolves.
 
 ### Releasing
 
-Push a bare semver tag (`0.1.1`, not `v0.1.1`) after setting the version in
-`Panel/public/manifest.json`, adding a `## 0.1.1` section to `CHANGELOG.md` and pointing
-the download URL in [docs/release-builds.md](docs/release-builds.md) and
-`docs/release-builds-ko.md` at the new version; `script/prepare-release` refuses the tag
-otherwise. The release notes end with the
-SHA-256 of `verify-release`, which users pin in their CI.
+To release a version such as `0.1.1`:
+
+1. Set the version in `Panel/public/manifest.json` to `0.1.1`.
+2. Add one `## 0.1.1` section to `CHANGELOG.md`, and say in it what changed.
+3. Point the download URL in
+   [docs/release-builds.md](docs/release-builds.md#block-a-release-in-ci) and
+   `docs/release-builds-ko.md` at `0.1.1`.
+4. Push the tag `0.1.1`. Use the bare version number, without a `v` prefix (`0.1.1`, not
+   `v0.1.1`).
+
+`script/prepare-release` refuses the tag when any of steps 1 to 3 is missing. The release notes
+end with the SHA-256 of `verify-release`, which users pin in their CI.
 
 Turn on GitHub's immutable releases in the repository settings before the first tag.
 Without them a published asset can be replaced, and the pinned hash is then the only thing
@@ -107,11 +129,12 @@ that notices.
 
 ### Discuss large changes in an issue first
 
-For the following changes, agree on an approach with a maintainer in an issue before
-starting work:
+Open an issue and agree on an approach with a maintainer before you start work on a
+change that:
 
 - adds an operation to `Panel/public/manifest.json`, or changes an existing operation's
-  input or output — the panel, the CLI and saved configuration files depend on them;
+  input or output. The panel, the CLI and saved configuration files depend on these
+  operations;
 
 - changes the configuration file format or how rules match a request;
 
