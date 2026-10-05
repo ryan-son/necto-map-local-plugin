@@ -1,0 +1,789 @@
+/*
+ * Copyright (c) 2026 necto-map-local-plugin contributors
+ *
+ * The panel's own layout and its two domain colours. Shared tokens and controls come from
+ * @necto/bridge/theme.css and components.css, so the panel looks like part of Necto rather
+ * than like a page embedded in it.
+ */
+
+@import "@necto/bridge/theme.css";
+@import "@necto/bridge/components.css";
+
+/*
+ * Our two domain colours (mock, block). Why our own: a request's result (mocked, real
+ * server, blocked) is a second axis beside its HTTP status, and Necto's semantic hues
+ * (success, warning, danger, info) already mean status. Reusing them would give one colour
+ * two meanings (docs/experience.md, principle 8). Until Necto has a semantic pair for this,
+ * these are the only colour literals in the panel.
+ *
+ * They sit in the same contrast band as Necto's palette (≥4.5:1 on every background,
+ * tests/tokens.test.ts), and the theme is picked with the same three selectors as theme.css,
+ * so they follow the host when it pins the window with data-theme. They don't follow a later
+ * Necto palette change; script/check-necto-latest reruns the contrast test against the latest
+ * bridge.
+ */
+:root {
+  --ml-mock: #7b3fd0;
+  --ml-block: #a24a12;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ml-mock: #b691ff;
+    --ml-block: #f0904a;
+  }
+}
+:root[data-theme="dark"] {
+  --ml-mock: #b691ff;
+  --ml-block: #f0904a;
+}
+
+/*
+ * WebKit gives buttons and selects a fixed font of their own instead of inheriting one, so a
+ * control without a Necto class that sets a size (a quiet button alone, a bare select) stayed
+ * small at Necto's larger text sizes (--necto-font-scale). Necto's control classes are more
+ * specific and keep their own sizes.
+ */
+button,
+select {
+  font-family: var(--necto-font-ui);
+  font-size: var(--necto-size-label);
+}
+
+/* Words that name the controls beside them read at the controls' size, not as captions. */
+.ml-head-state .necto-caption,
+.ml-traffic-toolbar .necto-caption,
+.ml-pause-strip .necto-caption {
+  font-size: var(--necto-size-label);
+}
+
+.ml-root {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  container: ml-panel / inline-size;
+}
+
+/*
+ * Two rows whatever they hold, so the lists below never move when a host is added or a hint
+ * goes: the global state first (on, allowed hosts), then requests without a rule with
+ * settings sharing quiet at the far right.
+ */
+.ml-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--necto-space-2);
+  padding: var(--necto-space-2) var(--necto-space-3);
+  border-bottom: 1px solid var(--necto-border);
+}
+
+.ml-head .necto-toolbar-group { padding: 0; }
+
+.ml-head-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--necto-space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+/* One line that scrolls sideways when hosts outgrow it, rather than wrapping and moving everything below. */
+.ml-head-state {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+/*
+ * Allowed and blocked hosts are separate groups. Each wraps to the next line as a unit, so a
+ * blocked chip never lands beside the allowed hosts or the host field and reads as allowed.
+ */
+.ml-host-group {
+  flex: 1 1 auto;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: var(--necto-space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.ml-add-host {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: var(--necto-space-1);
+  align-items: center;
+  min-width: 0;
+}
+
+.ml-add-host .necto-field {
+  width: 16ch;
+  min-width: 10ch;
+  max-width: 100%;
+}
+
+.ml-add-host-hint { color: var(--necto-text-secondary); }
+
+/* Shrinks first, so it never wraps the first row. */
+.ml-host-hint {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The response the app gets, whichever tab is open. */
+.necto-tab[data-live]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: var(--necto-space-1);
+  border-radius: 50%;
+  background: var(--necto-success);
+  vertical-align: middle;
+}
+
+.ml-tab-meta {
+  margin-left: var(--necto-space-1);
+  color: var(--necto-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* With Map Local off no rule applies, so the rules read as paused. */
+.ml-rules-off .ml-rule:not(:focus-visible) { opacity: 0.55; }
+
+/* One line whatever it says, so the form below never moves as requests arrive. */
+.ml-latest {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--necto-space-1);
+  align-items: center;
+}
+
+.ml-latest-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ml-latest button { flex: none; margin-left: auto; }
+
+.ml-head-share {
+  margin-left: auto;
+  flex: none;
+}
+
+.ml-head-share .necto-button-quiet {
+  color: var(--necto-text-secondary);
+  font-size: var(--necto-size-label);
+}
+
+/*
+ * Both tabs share one split (principle 6): list | handle | detail or editor. The list uses its
+ * remembered width (or the tab's default) within the minimum widths, and the detail takes the rest
+ * — the wider the panel, the larger the detail (body).
+ */
+.ml-split {
+  --ml-list-min: 200px;
+  --ml-detail-min: 280px;
+  position: relative;
+  display: grid;
+  grid-template-columns:
+    clamp(var(--ml-list-min), var(--ml-list-size, var(--ml-list-default)), calc(100% - var(--ml-detail-min)))
+    0
+    minmax(0, 1fr);
+  min-height: 0;
+}
+
+/*
+ * As in Necto Network, with nothing selected the detail and handle hide and the list takes the full
+ * width (F2). A hidden pane must beat an author display such as .ml-editor to collapse.
+ */
+.ml-split > [hidden] { display: none; }
+.ml-split[data-detail="closed"] { grid-template-columns: minmax(0, 1fr); }
+
+.ml-split[data-detail="closed"] > :first-child {
+  border-right: 0;
+  border-bottom: 0;
+}
+
+/* Rule rows are short, so when stacked the editor gets more of the height. */
+.ml-main {
+  --ml-list-default: clamp(220px, 32%, 360px);
+  --ml-stack-list: 1fr;
+}
+
+.ml-traffic-main { --ml-list-default: clamp(320px, 58%, 640px); }
+
+/*
+ * The host's necto-resize is a horizontal bar. It is turned into a vertical handle straddling the
+ * list's right border.
+ */
+.ml-split-handle {
+  position: relative;
+  z-index: 2;
+  width: 7px;
+  height: auto;
+  margin: 0 0 0 -4px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.ml-rules {
+  overflow: auto;
+  border-right: 1px solid var(--necto-border);
+}
+
+.ml-rules > .necto-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--necto-bg);
+}
+
+/*
+ * The editor fills the remaining height: the response cell (headers, body) grows, and the body gets
+ * space first. When too short, the whole editor scrolls.
+ */
+.ml-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--necto-space-3);
+}
+
+.ml-editor-head {
+  padding: 0 0 var(--necto-space-2);
+  gap: var(--necto-space-2);
+}
+
+.ml-editor-head > .ml-path {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/*
+ * 'Saved' changes only its text in place beside the title — a long path gives way by shrinking the
+ * title into an ellipsis.
+ */
+.ml-saved {
+  flex: none;
+  white-space: nowrap;
+}
+
+.ml-grid.ml-response-grid {
+  flex: 1 1 0;
+  grid-template-rows: auto auto auto minmax(9em, 3fr) auto minmax(4.5em, 1fr);
+  align-items: stretch;
+  margin-top: var(--necto-space-2);
+}
+
+.ml-response-grid textarea {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  resize: none;
+}
+
+.ml-body-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--necto-space-1);
+  min-height: 0;
+}
+
+.ml-body-field textarea {
+  flex: 1 1 0;
+  align-self: stretch;
+  height: auto;
+}
+
+.ml-chip {
+  display: inline-flex;
+  white-space: nowrap;
+  gap: var(--necto-space-1);
+  align-items: center;
+  padding: 0 var(--necto-space-2);
+  border: 1px solid var(--necto-border);
+  border-radius: var(--necto-radius-control);
+}
+
+.ml-chip-blocked { color: var(--necto-text-tertiary); }
+
+/* The line holds a button; give it room to sit inside the text. */
+.ml-rules-empty { line-height: 1.6; }
+
+.ml-response-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--necto-space-2);
+  align-items: center;
+  margin-top: var(--necto-space-3);
+}
+
+.ml-rule {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--necto-space-2);
+  align-items: center;
+  padding: var(--necto-space-1) var(--necto-space-3);
+  cursor: default;
+}
+
+.ml-rule[aria-selected="true"] {
+  background: var(--necto-selected);
+  box-shadow: inset 2px 0 0 var(--necto-accent);
+}
+
+/*
+ * The list takes focus as one container (listbox). The host ring is drawn inset so the scroll
+ * pane's edge does not clip it.
+ */
+[role="listbox"]:focus-visible { outline-offset: -2px; }
+
+/*
+ * The detail slot where Return lands while loading (tabindex=-1) is a scroll pane too — the ring
+ * goes inset so it is not clipped.
+ */
+.ml-traffic-detail:focus-visible { outline-offset: -2px; }
+
+/*
+ * The primary action's shortcut (⌘↩). Appended quietly after the text rather than mixed into the
+ * button name — assistive technology gets it through aria-keyshortcuts.
+ */
+[data-shortcut]::after {
+  content: attr(data-shortcut);
+  margin-left: var(--necto-space-2);
+  opacity: 0.7;
+  font-size: var(--necto-size-caption);
+}
+
+.ml-rule:hover { background: var(--necto-hover); }
+
+/* A rule that is off reads as off at a glance, not only through its checkbox. */
+.ml-rule[data-enabled="false"] .ml-path,
+.ml-rule[data-enabled="false"] .ml-path * {
+  color: var(--necto-text-tertiary);
+}
+
+.ml-path {
+  font-family: var(--necto-font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ml-host {
+  margin-left: var(--necto-space-2);
+  color: var(--necto-text-secondary);
+}
+
+.ml-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--necto-space-2) var(--necto-space-3);
+  align-items: center;
+}
+
+.ml-error {
+  color: var(--necto-danger);
+  font-size: var(--necto-size-caption);
+}
+
+/*
+ * Query conditions: quiet like the host in list rows, and one key = value × row in the editor. The
+ * reason spans the full width below its row.
+ */
+.ml-query { color: var(--necto-text-secondary); }
+
+.ml-query-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--necto-space-1);
+  min-width: 0;
+}
+
+.ml-query-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.5fr) auto;
+  align-items: center;
+  gap: var(--necto-space-1) var(--necto-space-2);
+  width: 100%;
+}
+
+.ml-query-row > input {
+  min-width: 0;
+  font-family: var(--necto-font-mono);
+}
+
+.ml-query-problem {
+  grid-column: 1 / -1;
+  color: var(--necto-danger);
+  font-size: var(--necto-size-caption);
+}
+
+.ml-query-hint { grid-column: 1 / -1; }
+
+.ml-capture-query {
+  display: flex;
+  align-items: center;
+  gap: var(--necto-space-1);
+}
+
+.ml-tabs {
+  padding: 0 var(--necto-space-3);
+  border-bottom: 1px solid var(--necto-border);
+}
+
+.ml-traffic-host {
+  display: grid;
+  min-height: 0;
+}
+
+.ml-dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+/*
+ * Brief notices float outside the flow — so the list and editor are not pushed as they come and go.
+ * The bottom right covers neither the header nor the primary action.
+ */
+.ml-toasts {
+  position: fixed;
+  right: var(--necto-space-3);
+  bottom: var(--necto-space-3);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--necto-space-2);
+  max-width: min(480px, calc(100% - 2 * var(--necto-space-3)));
+  pointer-events: none;
+}
+
+.ml-toasts > * {
+  pointer-events: auto;
+}
+
+.ml-traffic {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  min-height: 0;
+  height: 100%;
+}
+
+.ml-traffic-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--necto-space-2);
+  align-items: center;
+  padding: var(--necto-space-2) var(--necto-space-3);
+  border-bottom: 1px solid var(--necto-border);
+}
+
+.ml-toolbar-group {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--necto-space-1);
+  align-items: center;
+}
+
+.ml-toolbar-group[data-group="result-pause"] { gap: var(--necto-space-2); }
+
+.ml-traffic-toolbar input[type="search"] {
+  flex: 0 1 18em;
+  min-width: 10em;
+}
+
+.ml-traffic-toolbar .ml-chip[aria-pressed="true"],
+.ml-traffic-toolbar .ml-chip[aria-pressed="true"]:hover {
+  background: var(--necto-accent);
+  border-color: var(--necto-accent);
+  color: var(--necto-bg);
+}
+
+.ml-traffic-listcol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--necto-border);
+}
+
+/*
+ * The pause banner is one slot of the same height in both states (live, paused) — so it does not
+ * push the list as it appears and disappears (F1).
+ */
+.ml-pause-strip {
+  box-sizing: border-box;
+  height: calc(var(--necto-button-height) + 2 * var(--necto-space-1) + 1px);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--necto-space-2);
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0 var(--necto-space-3);
+  border-bottom: 1px solid var(--necto-border);
+  border-left: 2px solid transparent;
+  /* A click on a button that goes away with the click would select the word under it. */
+  user-select: none;
+  -webkit-user-select: none;
+  font-size: var(--necto-size-label);
+}
+
+.ml-pause-strip[data-pause-strip] {
+  border-left-color: var(--necto-warning);
+  background: color-mix(in srgb, var(--necto-warning) 12%, var(--necto-surface));
+}
+
+.ml-pause-strip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ml-pause-strip > button { flex: none; }
+
+.ml-traffic-list {
+  container-type: inline-size;
+  overflow: auto;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* With no rows, the header keeps its height and the empty state takes the rest. */
+.ml-traffic-list:has(~ .ml-traffic-empty:not([hidden])) { flex: 0 0 auto; }
+.ml-traffic-empty { flex: 1 1 0; height: auto; }
+.ml-traffic-empty[hidden] { display: none; }
+
+/*
+ * The list is the host's necto-table (sticky header, 26px rows, a left accent line on the selected
+ * row). Only the cell padding is narrowed, so the path survives in a narrow panel. Columns other
+ * than the path fit their content (1% + nowrap), and the path takes all remaining width (100%).
+ * max-width: 0 lets the path cell become narrower than its text, which the ellipsis needs.
+ */
+.ml-traffic-table { table-layout: auto; }
+
+.ml-traffic-table td:not([data-cell="path"]),
+.ml-traffic-table th:not(.ml-th-path) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.ml-traffic-table [data-cell="path"],
+.ml-traffic-table .ml-th-path {
+  width: 100%;
+  max-width: 0;
+}
+
+.ml-traffic-table th,
+.ml-traffic-table td {
+  padding: 0 var(--necto-space-1);
+}
+
+.ml-traffic-table th:first-child,
+.ml-traffic-table td:first-child {
+  padding-left: var(--necto-space-3);
+}
+
+.ml-traffic-table th:last-child,
+.ml-traffic-table td:last-child {
+  padding-right: var(--necto-space-3);
+}
+
+.ml-traffic-table tbody tr { cursor: default; }
+
+.ml-clock {
+  font-family: var(--necto-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ml-clock-hour { display: none; }
+.ml-result-rule { display: none; }
+
+@container (min-width: 520px) {
+  .ml-clock-hour { display: inline; }
+
+  .ml-result-rule {
+    display: inline;
+    margin-left: var(--necto-space-1);
+    color: var(--necto-text-secondary);
+  }
+}
+
+.ml-where {
+  display: flex;
+  gap: var(--necto-space-2);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.ml-where > .ml-path {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/*
+ * The query follows the path, dimmed. It is truncated at the end (in full in the title) and shrinks
+ * before the path.
+ */
+.ml-req-query {
+  flex: 0 10 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--necto-text-secondary);
+}
+
+.ml-req-query[data-query] { font-family: var(--necto-font-mono); }
+
+/*
+ * The host gives up its width long before the path does (O10): a narrow list keeps the path,
+ * which tells endpoints apart, and cuts the host to a few letters (in full in the cell title).
+ */
+.ml-req-host {
+  flex: 0 1000 auto;
+  min-width: 4ch;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--necto-text-secondary);
+}
+
+.ml-req-host-off { color: var(--necto-text-tertiary); }
+
+/* Left truncation keeps the end of the path. Inside a table cell it only works on a block. */
+.ml-tail {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+  text-overflow: ellipsis;
+  font-family: var(--necto-font-mono);
+}
+
+/*
+ * Result pills: shaped differently from the status dots. The default (real server) is quiet, and
+ * only mock and block stand out.
+ */
+.ml-result-cell {
+  display: block;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ml-result {
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: var(--necto-font-ui);
+  line-height: 16px;
+}
+
+.ml-result-mocked {
+  color: var(--ml-mock);
+  background: color-mix(in srgb, var(--ml-mock) 10%, transparent);
+}
+
+.ml-result-blocked {
+  color: var(--ml-block);
+  background: color-mix(in srgb, var(--ml-block) 10%, transparent);
+}
+
+.ml-result-passthrough {
+  padding: 0;
+  background: none;
+  color: var(--necto-text-tertiary);
+}
+
+.ml-result-unknown {
+  border: 1px dashed var(--necto-border-strong);
+  background: none;
+  color: var(--necto-text-tertiary);
+}
+
+.ml-slow { color: var(--necto-warning); }
+
+.ml-traffic-detail {
+  overflow: auto;
+  padding: var(--necto-space-3);
+}
+
+.ml-capture {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--necto-space-2);
+  margin: var(--necto-space-2) 0 var(--necto-space-3);
+  padding-bottom: var(--necto-space-3);
+  border-bottom: 1px solid var(--necto-border);
+}
+
+.ml-headers,
+.ml-body {
+  font-family: var(--necto-font-mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/*
+ * Narrow (<640): one thing at a time — the list above, the detail or editor below. With nothing
+ * selected (detail closed) the list takes all the space.
+ */
+@container ml-panel (max-width: 639px) {
+  .ml-split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, var(--ml-stack-list, 2fr)) minmax(0, 3fr);
+  }
+
+  .ml-split[data-detail="closed"] { grid-template-rows: minmax(0, 1fr); }
+  .ml-split-handle { display: none; }
+
+  .ml-split > :first-child {
+    border-right: 0;
+    border-bottom: 1px solid var(--necto-border);
+  }
+}
+
+/* Which rule answers a request this one shares; empty, it takes no gap in the column. */
+.ml-precedence { overflow-wrap: anywhere; }
+.ml-precedence:empty { display: none; }
+
+/* "Map Local" beside the switch, set apart from the host list it is not a switch for. */
+.ml-host-group { border-left: 1px solid var(--necto-border); padding-left: var(--necto-space-2); }
+
+/* A rule switch while Map Local is off: its value stands, but it does nothing. */
+.necto-switch[data-overridden] { opacity: 0.5; filter: saturate(0.4); }
+
+/* Each response tab's delete keeps its room while hidden, so tabs don't widen on hover. */
+.ml-tab-wrap { display: inline-flex; align-items: center; }
+.ml-tab-remove { visibility: hidden; padding: 0 var(--necto-space-1); }
+.ml-tab-wrap:hover .ml-tab-remove,
+.ml-tab-wrap:focus-within .ml-tab-remove,
+.ml-tab-remove[tabindex="0"] { visibility: visible; }
+
+.ml-name-field { display: flex; align-items: center; gap: var(--necto-space-2); min-width: 0; }
+.ml-name-field .necto-field { flex: 1 1 auto; min-width: 0; }
+
+/* Status, its menu of common codes and its hint share one line, so the hint moves nothing. */
+.ml-status-field { display: flex; align-items: center; gap: var(--necto-space-2); min-width: 0; white-space: nowrap; }
+.ml-status-field .necto-field { flex: 1 1 auto; min-width: 3.5em; }
+/* A select is as wide as its longest option. Capped, and allowed to shrink, it shows its
+   whole label where there is room and still fits the narrowest editor. */
+.ml-status-field select { flex: 0 1 auto; min-width: 0; max-width: 11em; }
+.ml-status-field [data-status-hint] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Check that every Swift file under Sources/ and Tests/ is compiled out of release
+# builds: after the leading header comment, the first line is `#if MAP_LOCAL_ENABLED`
+# and the last line is the `#endif` that closes it. One region spans the file, so code
+# cannot sit between a closing `#endif` and a second guard.
+#
+# Usage:
+#   script/lint-guard [root]
+set -u
+root="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+fail=0
+count=0
+while IFS= read -r -d '' f; do
+  count=$((count + 1))
+  first=$(awk 'header && /^[[:space:]]*(\/\/.*)?$/ { next } { header = 0; print }' header=1 "$f" | command grep -v '^[[:space:]]*$' | head -1)
+  last=$(command grep -v '^[[:space:]]*$' "$f" | tail -1)
+  # The guard opened on the first line must close on the last one and nowhere before, and
+  # carry no #else/#elseif: track the #if depth and fail if it returns to 0 early.
+  span=$(awk '
+    /^[[:space:]]*#if([[:space:]]|$)/ { depth++; seen = 1; next }
+    /^[[:space:]]*#(else|elseif)([[:space:]]|$)/ && depth == 1 { bad = 1 }
+    /^[[:space:]]*#endif([[:space:]]|$)/ { depth--; if (depth == 0) closed++; if (depth < 0) bad = 1; next }
+    seen && depth == 0 && !/^[[:space:]]*$/ { bad = 1 }
+    END { print (bad || closed != 1 || depth != 0) ? "bad" : "ok" }
+  ' "$f")
+  if [ "$first" != "#if MAP_LOCAL_ENABLED" ] || [ "$last" != "#endif" ] || [ "$span" != ok ]; then
+    echo "NOT GUARDED: $f"; fail=1
+  fi
+done < <(find "$root/Sources" "$root/Tests" -name '*.swift' -print0)
+[ "$count" -gt 0 ] || { echo "no swift files found"; exit 1; }
+[ "$fail" -eq 0 ] && echo "lint-guard: $count files OK"
+exit "$fail"

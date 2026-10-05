@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+#
+# Check that every English document and its Korean copy (`X.md` and `X-ko.md`) still have
+# the same shape, so a change to one is not forgotten in the other:
+#
+#   - the same headings, in count and in level order (`#`, `##`, …);
+#   - the same number of fenced code blocks;
+#   - the same link targets, compared as a set with repeats. A Korean copy links to the
+#     Korean copy of a document where the English links to the English one, so `-ko.md`
+#     is read as `.md`. Fragments are dropped, since GitHub derives anchors from the
+#     heading text of each language. Links between the pair itself (the language switch)
+#     are ignored.
+#
+# Headings and links inside fenced code blocks and HTML comments, and links inside code
+# spans, are not counted. A `-ko.md` without its English document fails, and so does finding no pair at
+# all, since the check would then prove nothing.
+#
+# Ruby's bundled standard library is used, as in script/lint-workflows.
+#
+# Usage:
+#   script/check-doc-pairs [root]
+set -u
+root="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$root" || exit 2
+exec ruby --disable-gems -e '
+  require "find"
+  require "pathname"
+
+  SKIP = %w[.git .build build node_modules .superpowers .swiftpm .tmp DerivedData]
+
+  def documents
+    found = []
+    Find.find(".") do |path|
+      if File.directory?(path)
+        Find.prune if path != "." && SKIP.include?(File.basename(path))
+        next
+      end
+      found << path.delete_prefix("./") if path.end_with?(".md")
+    end
+    found.sort
+  end
+
+  # A line without its HTML comments, and whether a comment is still open after it.
+  # Commented text is not rendered, so its headings and links do not count.
+  def uncomment(line, open)
+    out = +""
+    rest = line
+    loop do
+      if open
+        close = rest.index("-->")
+        return [out, true] unless close
+        rest = rest[(close + 3)..]
+        open = false
+      else
+        start = rest.index("<!--")
+        return [out + rest, false] unless start
+        out << rest[0...start]
+        rest = rest[(start + 4)..]
+        open = true
+      end
+    end
+  end
+
+  # The shape of one document: heading levels, the number of fenced code blocks, and the
+  # link targets resolved against the repository root.
+  def shape(file)
+    levels = []
+    blocks = 0
+    targets = []
+    fence = nil
+    comment = false
+    File.foreach(file) do |line|
+      if fence
+        fence = nil if line =~ /\A\s*#{Regexp.escape(fence)}+\s*\z/
+        next
+      end
+      line, comment = uncomment(line, comment)
+      if (m = line.match(/\A\s*(`{3,}|~{3,})/))
+        fence = m[1][0] * 3
+        blocks += 1
+        next
+      end
+      if (m = line.match(/\A(\#{1,6})\s/))
+        levels << m[1].length
+      end
+      text = line.gsub(/`+[^`]*`+/, "")
+      text.scan(/\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/) { |(t)| targets << t }
+      text.scan(/\A\s*\[[^\]]+\]:\s*<?(\S+?)>?(?:\s|\z)/) { |(t)| targets << t }
+      text.scan(/\b(?:href|src)="([^"]+)"/) { |(t)| targets << t }
+    end
+    [levels, blocks, targets.map { |t| normalize(file, t) }.compact.sort]
+  end
+
+  # A target as the English copy would write it, or nil when it points at the pair itself.
+  def normalize(file, target)
+    path = target.split("#", 2).first.to_s
+    english = file.sub(/-ko\.md\z/, ".md")
+    if path.empty?
+      return nil
+    elsif path =~ /\A[a-z][a-z0-9+.-]*:/i || path.start_with?("/")
+      return path.sub(/-ko\.md\z/, ".md")
+    end
+    resolved = Pathname.new(File.dirname(file)).join(path).cleanpath.to_s.sub(/-ko\.md\z/, ".md")
+    resolved == english ? nil : resolved
+  end
+
+  failed = false
+  pairs = 0
+  all = documents
+  all.select { |f| f.end_with?("-ko.md") }.each do |korean|
+    english = korean.sub(/-ko\.md\z/, ".md")
+    unless all.include?(english)
+      puts "NO ENGLISH PAIR: #{korean} (expected #{english})"
+      failed = true
+      next
+    end
+    pairs += 1
+    en_levels, en_blocks, en_links = shape(english)
+    ko_levels, ko_blocks, ko_links = shape(korean)
+    if en_levels != ko_levels
+      puts "HEADINGS DIFFER: #{english} has #{en_levels.length} (#{en_levels.join(" ")}), #{korean} has #{ko_levels.length} (#{ko_levels.join(" ")})"
+      failed = true
+    end
+    if en_blocks != ko_blocks
+      puts "CODE BLOCKS DIFFER: #{english} has #{en_blocks}, #{korean} has #{ko_blocks}"
+      failed = true
+    end
+    if en_links != ko_links
+      only_en = en_links.dup; ko_links.each { |l| i = only_en.index(l); only_en.delete_at(i) if i }
+      only_ko = ko_links.dup; en_links.each { |l| i = only_ko.index(l); only_ko.delete_at(i) if i }
+      only_en.each { |l| puts "LINK ONLY IN #{english}: #{l}" }
+      only_ko.each { |l| puts "LINK ONLY IN #{korean}: #{l}" }
+      failed = true
+    end
+  end
+  if !failed && pairs == 0
+    puts "no document pairs found"
+    failed = true
+  end
+  puts "OK: #{pairs} document pair#{pairs == 1 ? "" : "s"} match" unless failed
+  exit(failed ? 1 : 0)
+'

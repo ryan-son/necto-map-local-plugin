@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#
+# Check that every action the workflows and local composite actions use is pinned to a
+# full commit SHA. A tag or a branch can be moved to other code after review; a 40-hex
+# commit cannot. Local actions (`./path`) are ours: they pass, and are not counted.
+#
+# The files are parsed as YAML, so flow mappings (`- { uses: x }`), quoted keys and
+# `uses :` are read as GitHub reads them. Ruby's bundled YAML parser is used because it
+# is on every macOS host this runs on, before npm installs anything. Finding no actions
+# at all fails, since the check would then prove nothing.
+#
+# This checks the form of the reference only: it cannot tell whether a SHA matches its
+# `# vX` comment or comes from a fork.
+#
+# Usage:
+#   script/lint-workflows [root]
+set -u
+root="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$root" || exit 2
+files=()
+while IFS= read -r -d '' f; do files+=("${f#./}"); done < <(
+  find ./.github/workflows ./.github/actions \( -name '*.yml' -o -name '*.yaml' \) -type f -print0 2>/dev/null | sort -z
+)
+[ "${#files[@]}" -gt 0 ] || { echo "no workflow files found"; exit 1; }
+# --disable-gems: the parser is in the standard library, and installed gems only add
+# warnings on stderr.
+exec ruby --disable-gems -e '
+  require "yaml"
+  failed = false
+  pinned = 0
+  walk = lambda do |node, file|
+    if node.is_a?(Psych::Nodes::Mapping)
+      node.children.each_slice(2) do |key, value|
+        next unless key.is_a?(Psych::Nodes::Scalar) && key.value == "uses"
+        ref = value.is_a?(Psych::Nodes::Scalar) ? value.value : ""
+        next if ref.start_with?("./")
+        if ref.match?(/\A[A-Za-z0-9_.-]+\/[A-Za-z0-9_.\/-]+@[0-9a-f]{40}\z/)
+          pinned += 1
+        else
+          puts "NOT PINNED: #{file}:#{value.start_line + 1}: #{ref}"
+          failed = true
+        end
+      end
+    end
+    (node.children || []).each { |child| walk.call(child, file) }
+  end
+  ARGV.each do |file|
+    begin
+      walk.call(Psych.parse_stream(File.read(file), filename: file), file)
+    rescue Psych::SyntaxError => e
+      puts "can'"'"'t parse #{file}: #{e.message}"
+      failed = true
+    end
+  end
+  if !failed && pinned == 0
+    puts "no actions found in #{ARGV.join(", ")}"
+    failed = true
+  end
+  puts "OK: #{pinned} action#{pinned == 1 ? "" : "s"} pinned to a commit SHA" unless failed
+  exit(failed ? 1 : 0)
+' "${files[@]}"

@@ -1,0 +1,1171 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ryan-son.maplocal",
+  "name": "Map Local",
+  "description": "Map endpoint responses in the running app",
+  "version": "0.1.0",
+  "author": "Geonhee Son",
+  "icon": {
+    "systemName": "arrow.triangle.branch"
+  },
+  "assets": [
+    "index.html",
+    "assets"
+  ],
+  "allowedOrigins": [
+    "self"
+  ],
+  "operations": [
+    {
+      "id": "maplocal.state",
+      "title": "State",
+      "description": "Returns the configuration, its revision and the engine status. Read revision here before any write, and rule ids before rule.delete, rule.setActive or configuration.patch order.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.state",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "configuration": {
+            "type": "object",
+            "description": "The configuration, in the shape maplocal.configuration.replace takes."
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "true when the configuration cannot be written; issues says why."
+          },
+          "issues": {
+            "type": "array",
+            "description": "Problems found reading the configuration, in English.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issueDetails": {
+            "type": "array",
+            "description": "The same issues with code, params and message.",
+            "items": {
+              "type": "object"
+            }
+          },
+          "observedHosts": {
+            "type": "array",
+            "description": "Hosts the app has sent requests to, in the order first seen.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blockedHosts": {
+            "type": "array",
+            "description": "Hosts the app never mocks. Set in the app, not changeable here.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authMocked": {
+            "type": "boolean",
+            "description": "true when a rule tagged auth has answered, so the app may hold a mocked session. Clear it with maplocal.configuration.patch {authMocked:false} after logging out in the app."
+          },
+          "launchID": {
+            "type": "string",
+            "description": "Changes every time the app launches."
+          }
+        },
+        "required": [
+          "revision",
+          "configuration",
+          "readOnly",
+          "issues",
+          "observedHosts",
+          "blockedHosts",
+          "authMocked",
+          "launchID"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "maplocal.state.observe",
+      "title": "Observe state",
+      "description": "Sends the same value as maplocal.state now and again after every change.",
+      "kind": "stream",
+      "binding": {
+        "name": "necto.device.maplocal.state.observe",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "configuration": {
+            "type": "object",
+            "description": "The configuration, in the shape maplocal.configuration.replace takes."
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "true when the configuration cannot be written; issues says why."
+          },
+          "issues": {
+            "type": "array",
+            "description": "Problems found reading the configuration, in English.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issueDetails": {
+            "type": "array",
+            "description": "The same issues with code, params and message.",
+            "items": {
+              "type": "object"
+            }
+          },
+          "observedHosts": {
+            "type": "array",
+            "description": "Hosts the app has sent requests to, in the order first seen.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blockedHosts": {
+            "type": "array",
+            "description": "Hosts the app never mocks. Set in the app, not changeable here.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authMocked": {
+            "type": "boolean",
+            "description": "true when a rule tagged auth has answered, so the app may hold a mocked session. Clear it with maplocal.configuration.patch {authMocked:false} after logging out in the app."
+          },
+          "launchID": {
+            "type": "string",
+            "description": "Changes every time the app launches."
+          }
+        },
+        "required": [
+          "revision",
+          "configuration",
+          "readOnly",
+          "issues",
+          "observedHosts",
+          "blockedHosts",
+          "authMocked",
+          "launchID"
+        ]
+      },
+      "timeoutMs": 0
+    },
+    {
+      "id": "maplocal.configuration.replace",
+      "title": "Replace",
+      "description": "Replaces the whole configuration. Requires baseRevision from maplocal.state, or force:true to overwrite whatever is there (used by import). Returns the new revision, or ok:false with reason conflict or readOnly.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.configuration.replace",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "baseRevision": {
+            "type": "integer",
+            "description": "The revision this write is based on: the revision from maplocal.state, or from the last successful write. A stale value answers ok:false with reason conflict.",
+            "minimum": 0
+          },
+          "force": {
+            "type": "boolean",
+            "description": "true overwrites without checking baseRevision."
+          },
+          "configuration": {
+            "type": "object",
+            "description": "A whole configuration, as maplocal.configuration.export returns it under configuration. Keys from a newer version are kept read-only rather than rejected.",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "description": "The file format version. 1 for this plugin.",
+                "minimum": 1
+              },
+              "revision": {
+                "type": "integer",
+                "description": "Ignored on write; the engine assigns the next revision.",
+                "minimum": 0
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether mocking is on. Defaults to true."
+              },
+              "allowedHosts": {
+                "type": "array",
+                "description": "Hosts whose requests may be mocked, such as api.example.com. Scheme, port and case are ignored. Write a Unicode host in punycode (xn--…). An empty list mocks nothing.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unmatched": {
+                "type": "object",
+                "description": "What happens to a request to an allowed host that no rule matches.",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "description": "passthrough sends a request without a matching rule to the network; block answers it with status; fail makes it fail with error, as if the server could not be reached.",
+                    "enum": [
+                      "passthrough",
+                      "block",
+                      "fail"
+                    ]
+                  },
+                  "status": {
+                    "type": "integer",
+                    "description": "The status for mode block. Defaults to 421.",
+                    "minimum": 100,
+                    "maximum": 599
+                  },
+                  "error": {
+                    "type": "string",
+                    "description": "The URLError for mode fail: notConnectedToInternet (-1009), connectionLost (-1005) or timedOut (-1001). Defaults to notConnectedToInternet.",
+                    "enum": [
+                      "notConnectedToInternet",
+                      "connectionLost",
+                      "timedOut"
+                    ]
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "additionalProperties": false
+              },
+              "rules": {
+                "type": "array",
+                "description": "Rules in the shape maplocal.rule.upsert takes. A rule this version cannot read is kept as written and reported in issues instead of failing the whole configuration."
+              }
+            },
+            "required": [
+              "version"
+            ]
+          }
+        },
+        "required": [
+          "configuration"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "true when the write was saved. false only for the outcomes in reason; any other failure is an error, not a result."
+          },
+          "revision": {
+            "type": "integer",
+            "description": "The configuration's revision after the write, or the current one when ok is false.",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "description": "conflict: baseRevision is stale; read maplocal.state and retry against its revision. readOnly: the configuration cannot be written (see issues in maplocal.state).",
+            "enum": [
+              "conflict",
+              "readOnly"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "A stable message code, listed in Fixtures/message-codes.json."
+          },
+          "params": {
+            "type": "object",
+            "description": "Values the message text needs, by name."
+          },
+          "message": {
+            "type": "string",
+            "description": "The failure in English."
+          }
+        },
+        "required": [
+          "ok",
+          "revision"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "maplocal.configuration.patch",
+      "title": "Patch",
+      "description": "Changes some top-level settings and keeps the rest. Requires baseRevision from maplocal.state. Send any of enabled, allowedHosts, unmatched or order; or send authMocked:false alone to clear the mocked-session warning after logging out in the app. Returns the new revision, or ok:false with reason conflict or readOnly.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.configuration.patch",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "baseRevision": {
+            "type": "integer",
+            "description": "The revision this write is based on: the revision from maplocal.state, or from the last successful write. A stale value answers ok:false with reason conflict.",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Turns mocking on or off."
+          },
+          "allowedHosts": {
+            "type": "array",
+            "description": "Hosts whose requests may be mocked, such as api.example.com. Scheme, port and case are ignored. Write a Unicode host in punycode (xn--…). An empty list mocks nothing.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unmatched": {
+            "type": "object",
+            "description": "What happens to a request to an allowed host that no rule matches.",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "description": "passthrough sends a request without a matching rule to the network; block answers it with status; fail makes it fail with error, as if the server could not be reached.",
+                "enum": [
+                  "passthrough",
+                  "block",
+                  "fail"
+                ]
+              },
+              "status": {
+                "type": "integer",
+                "description": "The status for mode block. Defaults to 421.",
+                "minimum": 100,
+                "maximum": 599
+              },
+              "error": {
+                "type": "string",
+                "description": "The URLError for mode fail: notConnectedToInternet (-1009), connectionLost (-1005) or timedOut (-1001). Defaults to notConnectedToInternet.",
+                "enum": [
+                  "notConnectedToInternet",
+                  "connectionLost",
+                  "timedOut"
+                ]
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "additionalProperties": false
+          },
+          "order": {
+            "type": "array",
+            "description": "Every rule id from maplocal.state, each exactly once, in the new order.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authMocked": {
+            "type": "boolean",
+            "description": "Only false, sent with nothing but baseRevision.",
+            "enum": [
+              false
+            ]
+          }
+        },
+        "required": [
+          "baseRevision"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "true when the write was saved. false only for the outcomes in reason; any other failure is an error, not a result."
+          },
+          "revision": {
+            "type": "integer",
+            "description": "The configuration's revision after the write, or the current one when ok is false.",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "description": "conflict: baseRevision is stale; read maplocal.state and retry against its revision. readOnly: the configuration cannot be written (see issues in maplocal.state).",
+            "enum": [
+              "conflict",
+              "readOnly"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "A stable message code, listed in Fixtures/message-codes.json."
+          },
+          "params": {
+            "type": "object",
+            "description": "Values the message text needs, by name."
+          },
+          "message": {
+            "type": "string",
+            "description": "The failure in English."
+          }
+        },
+        "required": [
+          "ok",
+          "revision"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "maplocal.rule.upsert",
+      "title": "Upsert rule",
+      "description": "Adds a rule, or replaces the rule with the same id. Requires baseRevision from maplocal.state. Returns the new revision, or ok:false with reason conflict or readOnly.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.rule.upsert",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "baseRevision": {
+            "type": "integer",
+            "description": "The revision this write is based on: the revision from maplocal.state, or from the last successful write. A stale value answers ok:false with reason conflict.",
+            "minimum": 0
+          },
+          "rule": {
+            "type": "object",
+            "description": "A rule in the shape maplocal.state returns under configuration.rules.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique within the configuration. An id that already exists replaces that rule in place; a new id is appended.",
+                "minLength": 1
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "Defaults to true."
+              },
+              "tags": {
+                "type": "array",
+                "description": "Free-form labels. The tag auth marks a rule whose response hands out a login or token, so the app shows a mocked-session warning.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "match": {
+                "type": "object",
+                "description": "Which requests the rule answers.",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "description": "The HTTP method, upper case, such as GET."
+                  },
+                  "host": {
+                    "type": "string",
+                    "description": "Only requests to this host. Omit to match every allowed host."
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "Starts with /, percent-encoded as the app sends it (%20, not a space), without a query or a fragment. A {name} segment matches any one non-empty segment.",
+                    "minLength": 1
+                  },
+                  "query": {
+                    "type": "object",
+                    "description": "Query parameters the request must carry, as name to string value. Among matching rules, the one with more query conditions wins."
+                  }
+                },
+                "required": [
+                  "method",
+                  "path"
+                ],
+                "additionalProperties": false
+              },
+              "active": {
+                "type": "string",
+                "description": "The name of the response in responses that the rule answers with."
+              },
+              "responses": {
+                "type": "object",
+                "description": "Named responses, at least one. Each is an object with status (100–599) or error (notConnectedToInternet, connectionLost, timedOut), and optionally headers (name to string), body (a string) or json (any JSON value), and delayMs (0–60000). Unknown keys are rejected."
+              }
+            },
+            "required": [
+              "id",
+              "match",
+              "active",
+              "responses"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "baseRevision",
+          "rule"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "true when the write was saved. false only for the outcomes in reason; any other failure is an error, not a result."
+          },
+          "revision": {
+            "type": "integer",
+            "description": "The configuration's revision after the write, or the current one when ok is false.",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "description": "conflict: baseRevision is stale; read maplocal.state and retry against its revision. readOnly: the configuration cannot be written (see issues in maplocal.state).",
+            "enum": [
+              "conflict",
+              "readOnly"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "A stable message code, listed in Fixtures/message-codes.json."
+          },
+          "params": {
+            "type": "object",
+            "description": "Values the message text needs, by name."
+          },
+          "message": {
+            "type": "string",
+            "description": "The failure in English."
+          }
+        },
+        "required": [
+          "ok",
+          "revision"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "maplocal.rule.delete",
+      "title": "Delete rule",
+      "description": "Deletes a rule. Requires baseRevision and a rule id from maplocal.state. Returns the new revision, or ok:false with reason conflict or readOnly.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.rule.delete",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "baseRevision": {
+            "type": "integer",
+            "description": "The revision this write is based on: the revision from maplocal.state, or from the last successful write. A stale value answers ok:false with reason conflict.",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "description": "A rule id from maplocal.state."
+          }
+        },
+        "required": [
+          "baseRevision",
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "true when the write was saved. false only for the outcomes in reason; any other failure is an error, not a result."
+          },
+          "revision": {
+            "type": "integer",
+            "description": "The configuration's revision after the write, or the current one when ok is false.",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "description": "conflict: baseRevision is stale; read maplocal.state and retry against its revision. readOnly: the configuration cannot be written (see issues in maplocal.state).",
+            "enum": [
+              "conflict",
+              "readOnly"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "A stable message code, listed in Fixtures/message-codes.json."
+          },
+          "params": {
+            "type": "object",
+            "description": "Values the message text needs, by name."
+          },
+          "message": {
+            "type": "string",
+            "description": "The failure in English."
+          }
+        },
+        "required": [
+          "ok",
+          "revision"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "maplocal.rule.setActive",
+      "title": "Set active response",
+      "description": "Switches the response a rule answers with. Requires baseRevision, a rule id and one of that rule's response names from maplocal.state. Returns the new revision, or ok:false with reason conflict or readOnly.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.rule.setActive",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "baseRevision": {
+            "type": "integer",
+            "description": "The revision this write is based on: the revision from maplocal.state, or from the last successful write. A stale value answers ok:false with reason conflict.",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "description": "A rule id from maplocal.state."
+          },
+          "response": {
+            "type": "string",
+            "description": "A key of that rule's responses."
+          }
+        },
+        "required": [
+          "baseRevision",
+          "id",
+          "response"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "true when the write was saved. false only for the outcomes in reason; any other failure is an error, not a result."
+          },
+          "revision": {
+            "type": "integer",
+            "description": "The configuration's revision after the write, or the current one when ok is false.",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "description": "conflict: baseRevision is stale; read maplocal.state and retry against its revision. readOnly: the configuration cannot be written (see issues in maplocal.state).",
+            "enum": [
+              "conflict",
+              "readOnly"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "A stable message code, listed in Fixtures/message-codes.json."
+          },
+          "params": {
+            "type": "object",
+            "description": "Values the message text needs, by name."
+          },
+          "message": {
+            "type": "string",
+            "description": "The failure in English."
+          }
+        },
+        "required": [
+          "ok",
+          "revision"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "maplocal.requests.observe",
+      "title": "Observe requests",
+      "description": "Sends one event for every request the app makes from now on, with whether it was mocked, sent to the network or blocked.",
+      "kind": "stream",
+      "binding": {
+        "name": "necto.device.maplocal.requests.observe",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "description": "Order the engine saw the request in, from 1 at launch."
+          },
+          "date": {
+            "type": "number",
+            "description": "Milliseconds since 1970."
+          },
+          "method": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "query": {
+            "type": "object",
+            "description": "Query parameters, name to value."
+          },
+          "outcome": {
+            "type": "object",
+            "description": "One of passthrough, mocked {rule, response, status, error} or unmocked {status, error}. An error, a URLError code, means the request failed instead of getting status."
+          }
+        },
+        "required": [
+          "seq",
+          "date",
+          "method",
+          "host",
+          "path",
+          "outcome"
+        ]
+      },
+      "timeoutMs": 0
+    },
+    {
+      "id": "maplocal.requests.list",
+      "title": "Recent requests",
+      "description": "Returns the most recent requests since launch, newest last, up to limit (default and most 500). lastSeq is the seq of the newest event.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.requests.list",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "How many events to return.",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "description": "Order the engine saw the request in, from 1 at launch."
+                },
+                "date": {
+                  "type": "number",
+                  "description": "Milliseconds since 1970."
+                },
+                "method": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "query": {
+                  "type": "object",
+                  "description": "Query parameters, name to value."
+                },
+                "outcome": {
+                  "type": "object",
+                  "description": "One of passthrough, mocked {rule, response, status, error} or unmocked {status, error}. An error, a URLError code, means the request failed instead of getting status."
+                }
+              },
+              "required": [
+                "seq",
+                "date",
+                "method",
+                "host",
+                "path",
+                "outcome"
+              ]
+            }
+          },
+          "lastSeq": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "events",
+          "lastSeq"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "network.observe",
+      "title": "Observe network records",
+      "description": "Receives a record of Necto's network plugin whenever a request starts or finishes. Available only when the app registers that plugin.",
+      "kind": "stream",
+      "binding": {
+        "name": "necto.device.network-records.observe",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "record": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "completed",
+                  "failed"
+                ]
+              },
+              "startedAtMilliseconds": {
+                "type": "number"
+              },
+              "statusCode": {
+                "type": "number"
+              },
+              "durationMilliseconds": {
+                "type": "number"
+              },
+              "responseByteCount": {
+                "type": "number"
+              },
+              "errorSummary": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "method",
+              "url",
+              "name",
+              "host",
+              "state",
+              "startedAtMilliseconds"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "additionalProperties": true
+      },
+      "timeoutMs": 0
+    },
+    {
+      "id": "maplocal.configuration.export",
+      "title": "Export",
+      "description": "Returns the whole configuration with every value as-is, including tokens. Pass it as configuration to maplocal.configuration.replace to copy it to another app.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.configuration.export",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "configuration": {
+            "type": "object",
+            "description": "The configuration, in the shape maplocal.configuration.replace takes."
+          }
+        },
+        "required": [
+          "configuration"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "network.list",
+      "title": "Network records",
+      "description": "Returns the requests Necto's network plugin recorded. Available only when the app registers that plugin.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.network-records.list",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5000
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "completed",
+                    "failed"
+                  ]
+                },
+                "startedAtMilliseconds": {
+                  "type": "number"
+                },
+                "statusCode": {
+                  "type": "number"
+                },
+                "durationMilliseconds": {
+                  "type": "number"
+                },
+                "responseByteCount": {
+                  "type": "number"
+                },
+                "errorSummary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "method",
+                "url",
+                "name",
+                "host",
+                "state",
+                "startedAtMilliseconds"
+              ],
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "records"
+        ],
+        "additionalProperties": true
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "network.detail",
+      "title": "Network record detail",
+      "description": "Returns headers, bodies and a cURL command for one record of Necto's network plugin. First call network.list and pass a returned record's id as recordID.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.network-records.detail",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "recordID": {
+            "type": "string",
+            "description": "The id of a record returned by records.list."
+          }
+        },
+        "required": [
+          "recordID"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "record": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "completed",
+                  "failed"
+                ]
+              },
+              "startedAtMilliseconds": {
+                "type": "number"
+              },
+              "statusCode": {
+                "type": "number"
+              },
+              "durationMilliseconds": {
+                "type": "number"
+              },
+              "responseByteCount": {
+                "type": "number"
+              },
+              "errorSummary": {
+                "type": "string"
+              },
+              "requestHeaders": {
+                "type": "object"
+              },
+              "responseHeaders": {
+                "type": "object"
+              },
+              "curl": {
+                "type": "string"
+              },
+              "requestBody": {
+                "type": "object",
+                "properties": {
+                  "byteCount": {
+                    "type": "number"
+                  },
+                  "isTruncated": {
+                    "type": "boolean"
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "byteCount",
+                  "isTruncated"
+                ],
+                "additionalProperties": true
+              },
+              "responseBody": {
+                "type": "object",
+                "properties": {
+                  "byteCount": {
+                    "type": "number"
+                  },
+                  "isTruncated": {
+                    "type": "boolean"
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "byteCount",
+                  "isTruncated"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "id",
+              "method",
+              "url",
+              "name",
+              "host",
+              "state",
+              "startedAtMilliseconds",
+              "requestHeaders",
+              "responseHeaders",
+              "curl"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "additionalProperties": true
+      },
+      "timeoutMs": 5000
+    }
+  ]
+}

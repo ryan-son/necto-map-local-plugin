@@ -1,0 +1,23 @@
+{
+  "name": "@necto-plugin/maplocal",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@necto/bridge": "https://github.com/toss/necto/releases/download/0.2.0/necto-bridge-0.2.0.tgz"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.8"
+  }
+}

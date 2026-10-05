@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Release controls. Archive the example apps and assert that each archive passes or
+# fails script/verify-release by the expected rule, on the expected file. No app is run.
+#
+# Usage:
+#   script/verify-controls
+set -u
+root="$(cd "$(dirname "$0")/.." && pwd)"
+out="$root/build/controls"
+verify="$root/script/verify-release"
+rm -rf "$out"; mkdir -p "$out"
+fail=0
+
+# archive <project> <scheme> <configuration> <name>
+archive() {
+  xcodebuild archive -project "$1" -scheme "$2" -configuration "$3" -destination 'generic/platform=iOS' \
+    -archivePath "$out/$4.xcarchive" CODE_SIGNING_ALLOWED=NO -skipPackagePluginValidation > "$out/$4.log" 2>&1 \
+    || { echo "ARCHIVE FAILED: $4 (see $out/$4.log)"; exit 2; }
+}
+# assert <name> <exit code> <pattern for a FOUND line, or empty> -- <verify-release arguments...>
+assert() {
+  local name=$1 code=$2 pattern=$3; shift 4
+  local text rc
+  text=$("$verify" "$@" 2>&1); rc=$?
+  if [ "$rc" != "$code" ]; then echo "FAIL $name: rc=$rc want $code"; printf '%s\n' "$text" | tail -5; fail=1; return; fi
+  if [ -n "$pattern" ] && ! printf '%s\n' "$text" | command grep -E -q "$pattern"; then echo "FAIL $name: no line matching $pattern"; printf '%s\n' "$text" | tail -5; fail=1; return; fi
+  if [ -z "$pattern" ] && printf '%s' "$text" | command grep -q "FOUND"; then echo "FAIL $name: unexpected finding"; printf '%s\n' "$text" | command grep FOUND | head -3; fail=1; return; fi
+  echo "ok   $name"
+}
+
+archive "$root/Examples/QuickStart/QuickStart.xcodeproj" QuickStart Release quick-release
+archive "$root/Examples/QuickStart/QuickStart.xcodeproj" QuickStart Debug quick-debug
+archive "$root/Examples/QuickStart/QuickStart.xcodeproj" QuickStart ReleaseDebuggable quick-releasedebuggable
+archive "$root/Examples/SeparateProject/App/App.xcodeproj" Shop Release shop-release
+
+assert "① same-target release archive: no trace of ours" 0 "" -- "$out/quick-release.xcarchive"
+assert "② same-target Debug archive: plugin code in the executable" 1 'FOUND \[maplocal\] .*QuickStart\.app/QuickStart$' -- "$out/quick-debug.xcarchive"
+assert "③ same-target release archive with the Necto check: executable and Necto bundle" 1 'FOUND \[necto\] .*(QuickStart\.app/QuickStart|Necto_NectoDefaultPlugins\.bundle)' -- --include-necto "$out/quick-release.xcarchive"
+assert "④ separate-project release archive with the Necto check: no trace" 0 "" -- --include-necto "$out/shop-release.xcarchive"
+assert "⑤ release configuration named with debug (ReleaseDebuggable): plugin code in the executable (configuration name rule)" 1 'FOUND \[maplocal\] .*QuickStart\.app/QuickStart$' -- "$out/quick-releasedebuggable.xcarchive"
+
+# ⑥ The Debug-only project still builds (it is never archived).
+xcodebuild build -project "$root/Examples/SeparateProject/Dev/Dev.xcodeproj" -scheme ShopDev -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -skipPackagePluginValidation > "$out/dev-build.log" 2>&1 \
+  && echo "ok   ⑥ Debug-only project builds" || { echo "FAIL ⑥ Debug-only project builds (see $out/dev-build.log)"; fail=1; }
+exit "$fail"

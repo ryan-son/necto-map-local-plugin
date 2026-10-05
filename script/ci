@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+#
+# Run every check CI runs. Locally it is the same command.
+#
+# Usage:
+#   script/ci
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+echo "==> release guard"
+script/lint-guard
+
+echo "==> workflow pins"
+script/lint-workflows
+
+echo "==> documentation pairs and links"
+script/check-doc-pairs
+script/check-doc-links
+
+echo "==> panel"
+script/build-panel
+git diff --exit-code -- Sources/NectoMapLocalPlugin/EmbeddedPanel.swift || {
+  echo "EmbeddedPanel.swift differs from the panel source. Run script/build-panel and commit the result."
+  exit 1
+}
+
+echo "==> swift test"
+swift test
+
+echo "==> release verification"
+script/test-verify-release
+
+echo "==> release controls"
+script/verify-controls

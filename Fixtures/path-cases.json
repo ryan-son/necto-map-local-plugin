@@ -1,0 +1,25 @@
+{
+  "// ": "Which rule paths are accepted. Requests are matched percent-encoded, so a path with a character a URL path cannot hold could never match and is refused (pathNotEncoded). Swift's SharedFixtureTests and the panel's fixtures.test.ts both read this table.",
+  "cases": [
+    { "name": "plain segments", "path": "/api/sites", "valid": true },
+    { "name": "the root", "path": "/", "valid": true },
+    { "name": "an empty segment", "path": "/a//b", "valid": true },
+    { "name": "a template segment", "path": "/a/{id}/b", "valid": true },
+    { "name": "an encoded space", "path": "/x%20y", "valid": true },
+    { "name": "encoded Korean, upper-case hex", "path": "/%EA%B2%80%EC%83%89", "valid": true },
+    { "name": "encoded Korean, lower-case hex", "path": "/%ea%b2%80%ec%83%89", "valid": true },
+    { "name": "sub-delimiters, colon and at sign", "path": "/@me/a:b;v=1,2/!$&'()*+", "valid": true },
+    { "name": "unreserved punctuation", "path": "/a-b.c_d~e", "valid": true },
+    { "name": "a raw space", "path": "/x y", "valid": false },
+    { "name": "raw Korean", "path": "/검색", "valid": false },
+    { "name": "a percent sign without two hex digits", "path": "/100%", "valid": false },
+    { "name": "a percent sign with one hex digit", "path": "/a%2", "valid": false },
+    { "name": "a percent sign with non-hex digits", "path": "/a%zz", "valid": false },
+    { "name": "a vertical bar", "path": "/a|b", "valid": false },
+    { "name": "a double quote", "path": "/a\"b", "valid": false },
+    { "name": "square brackets", "path": "/a[0]", "valid": false },
+    { "name": "a backslash", "path": "/a\\b", "valid": false },
+    { "name": "a brace that is not a whole template segment", "path": "/{id}x", "valid": false },
+    { "name": "an open brace alone", "path": "/a{b", "valid": false }
+  ]
+}

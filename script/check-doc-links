@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+#
+# Check that every relative link in the repository's Markdown resolves to a file or folder
+# that exists. External links (`https:`, `mailto:` …) and links to a heading in the same
+# document are not checked. A fragment is dropped before the path is checked.
+#
+# Screenshots are captured by hand, so an image (`![…](…)`) that is not committed yet is
+# reported as PENDING on every run, and does not fail. Any other missing target fails.
+# Links inside fenced code blocks, code spans and HTML comments are not read.
+#
+# Usage:
+#   script/check-doc-links [root]
+set -u
+root="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$root" || exit 2
+exec ruby --disable-gems -e '
+  require "find"
+  require "pathname"
+  require "uri"
+
+  SKIP = %w[.git .build build node_modules .superpowers .swiftpm .tmp DerivedData]
+
+  # A line without its HTML comments, and whether a comment is still open after it.
+  # Commented text is not rendered, so its links are not checked.
+  def uncomment(line, open)
+    out = +""
+    rest = line
+    loop do
+      if open
+        close = rest.index("-->")
+        return [out, true] unless close
+        rest = rest[(close + 3)..]
+        open = false
+      else
+        start = rest.index("<!--")
+        return [out + rest, false] unless start
+        out << rest[0...start]
+        rest = rest[(start + 4)..]
+        open = true
+      end
+    end
+  end
+
+  files = []
+  Find.find(".") do |path|
+    if File.directory?(path)
+      Find.prune if path != "." && SKIP.include?(File.basename(path))
+      next
+    end
+    files << path.delete_prefix("./") if path.end_with?(".md")
+  end
+  files.sort!
+
+  failed = false
+  checked = 0
+  files.each do |file|
+    fence = nil
+    comment = false
+    File.foreach(file).with_index(1) do |line, number|
+      if fence
+        fence = nil if line =~ /\A\s*#{Regexp.escape(fence)}+\s*\z/
+        next
+      end
+      line, comment = uncomment(line, comment)
+      if (m = line.match(/\A\s*(`{3,}|~{3,})/))
+        fence = m[1][0] * 3
+        next
+      end
+      text = line.gsub(/`+[^`]*`+/, "")
+      links = []
+      text.scan(/(!?)\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/) { |bang, t| links << [t, bang == "!"] }
+      text.scan(/\A\s*\[[^\]]+\]:\s*<?(\S+?)>?(?:\s|\z)/) { |(t)| links << [t, false] }
+      text.scan(/<img\b[^>]*\bsrc="([^"]+)"/) { |(t)| links << [t, true] }
+      text.scan(/<a\b[^>]*\bhref="([^"]+)"/) { |(t)| links << [t, false] }
+      links.each do |target, image|
+        path = target.split("#", 2).first.to_s.split("?", 2).first.to_s
+        next if path.empty? || path =~ /\A[a-z][a-z0-9+.-]*:/i || path.start_with?("//")
+        resolved = path.start_with?("/") ? path.delete_prefix("/") : Pathname.new(File.dirname(file)).join(URI.decode_www_form_component(path.gsub("+", "%2B"))).cleanpath.to_s
+        checked += 1
+        next if File.exist?(resolved)
+        if image
+          puts "PENDING: #{file}:#{number}: image #{resolved} is not committed yet"
+        else
+          puts "BROKEN: #{file}:#{number}: #{target}"
+          failed = true
+        end
+      end
+    end
+  end
+  if !failed && checked == 0
+    puts "no relative links found"
+    failed = true
+  end
+  puts "OK: #{checked} relative link#{checked == 1 ? "" : "s"} in #{files.length} documents" unless failed
+  exit(failed ? 1 : 0)
+'

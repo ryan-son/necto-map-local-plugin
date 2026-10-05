@@ -1,0 +1,3 @@
+# Release notes are cut from CHANGELOG.md by line, and the scripts run under bash.
+CHANGELOG.md text eol=lf
+script/* text eol=lf

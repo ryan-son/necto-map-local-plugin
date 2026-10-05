@@ -1,0 +1,78 @@
+# Publishes a release when a bare semver tag is pushed. For a device plugin the tag is
+# the release: apps resolve the Swift package at it. The release itself carries only
+# script/verify-release and its checksum, which "Blocking in CI" in docs/release-builds.md
+# downloads; the release notes carry the hash users pin. Turn on immutable releases
+# (CONTRIBUTING.md).
+#
+#   # set the version in Panel/public/manifest.json and add a "## <version>" CHANGELOG heading
+#   git tag 0.1.1 && git push --tags
+name: Release
+
+on:
+  push:
+    # Bare semver only: SwiftPM's `from: "0.1.0"` does not see `v0.1.0`.
+    # script/prepare-release enforces the same, so a tag that slips past this filter stops.
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+
+# Read-only by default. Only the publish job, which runs none of our code, can write.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # script/ci archives the example apps, so this needs macOS and Xcode 26 like CI.
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      # Actions are pinned to commits (script/lint-workflows checks); the comment names the tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+
+      # Before the long CI run: fail when the tag, the manifest version and the CHANGELOG
+      # disagree (Necto and SwiftPM read the version from different places). The assets are
+      # written and uploaded here, before any npm or Swift dependency code runs in this
+      # tree, so nothing CI executes can change what is published. upload-artifact refuses
+      # a second artifact with the same name, so no later step can replace it.
+      - name: Check the tag and prepare the assets
+        run: script/prepare-release "$GITHUB_REF_NAME" "$RUNNER_TEMP/release"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: "22.12" }
+      - name: Select Xcode 26 (fail without it)
+        run: |
+          xcode=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$xcode" ] || { echo "Xcode 26 not found"; ls -d /Applications/Xcode*.app; exit 1; }
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+      # npm ci --ignore-scripts from the lockfile runs inside script/build-panel. The publish
+      # job waits for this, so a release ships only from a tree that passed.
+      - run: script/ci
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # The write token exists only here, where no npm or Swift build script runs and no
+    # repository code is checked out.
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: release
+      - name: Publish
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            release/verify-release \
+            release/verify-release.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Map Local $GITHUB_REF_NAME" \
+            --notes-file release/release-notes.md \
+            --verify-tag

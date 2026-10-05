@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Resolve and test the plugin against Necto's latest tag, rebuild the panel against that
+# tag's @necto/bridge (theme.css and components.css ride in the panel), rerun the token
+# contrast test on it, and say whether a new minor release of Necto needs a matching
+# release of this plugin.
+#
+# Usage:
+#   script/check-necto-latest
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+latest=$(git ls-remote --tags --refs https://github.com/toss/necto.git | sed 's#.*refs/tags/##' | command grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+echo "latest necto: $latest"
+work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
+rsync -a --exclude .build --exclude Panel/node_modules "$root/" "$work/"
+sed -i '' -E "s#\.package\(url: \"https://github.com/toss/necto.git\", \.upToNextMinor\(from: \"[0-9.]+\"\)\)#.package(url: \"https://github.com/toss/necto.git\", exact: \"$latest\")#" "$work/Package.swift"
+command grep -q "exact: \"$latest\"" "$work/Package.swift" || { echo "could not find the necto dependency line in Package.swift"; exit 2; }
+(cd "$work" && swift package resolve && swift test)
+bridge="https://github.com/toss/necto/releases/download/$latest/necto-bridge-$latest.tgz"
+curl -fsSLI -o /dev/null "$bridge" || { echo "no bridge tarball at $bridge"; exit 2; }
+(
+  cd "$work/Panel"
+  npm ci --ignore-scripts --no-audit --no-fund
+  npm install --ignore-scripts --no-save --no-audit --no-fund "$bridge"
+  installed=$(node -p 'require("@necto/bridge/package.json").version')
+  [ "$installed" = "$latest" ] || { echo "installed @necto/bridge $installed, wanted $latest"; exit 2; }
+  npm run build
+  npx vitest run tests/tokens.test.ts
+)
+declared=$(sed -nE 's#.*toss/necto.git", \.upToNextMinor\(from: "([0-9]+\.[0-9]+)\.[0-9]+"\).*#\1#p' "$root/Package.swift")
+[ -n "$declared" ] || { echo "could not read the declared Necto range"; exit 2; }
+if [ "${latest%.*}" != "$declared" ]; then
+  echo "Necto ${latest} is outside the declared range (${declared}.x). The tests passed, but an app on that version cannot resolve this plugin alongside it — a matching release is needed"
+  exit 1
+fi

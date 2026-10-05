@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#
+# Test and build the panel, then embed it into the Swift sources. Run this after any
+# change under Panel/.
+#
+# Usage:
+#   script/build-panel
+set -euo pipefail
+cd "$(dirname "$0")/../Panel"
+
+npm ci --ignore-scripts --no-audit --no-fund
+npm test
+npm run build
+[ -f dist/manifest.json ] || { echo "dist/manifest.json missing (vite should copy public/manifest.json)"; exit 1; }
+# The dev mock host (src/mock.ts) must never ship. The marker has to exist in the source,
+# or this check would pass for nothing.
+marker=maplocal-dev-mock-host
+command grep -q "$marker" src/mock.ts || { echo "src/mock.ts no longer carries $marker; update this check"; exit 1; }
+if command grep -rlF "$marker" dist || ls dist/assets | command grep -i mock; then
+  echo "the dev mock host is in the production bundle"; exit 1
+fi
+../script/embed-panel

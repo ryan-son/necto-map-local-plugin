@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+#
+# Check that the apps in a release archive carry no trace of Map Local (and, with
+# --include-necto, of Necto).
+#
+# Exit codes: 0 no traces / 1 traces found (one `FOUND [rule] path` line each) /
+# 2 usage or read error. CI blocks on this between archiving and uploading. It runs on
+# the bash 3.2 that ships with macOS.
+#
+# Usage:
+#   script/verify-release [--include-necto] <archive|app|ipa>
+set -uo pipefail
+usage() { echo "Usage: verify-release [--include-necto] <archive|app|ipa>"; exit 2; }
+
+include_necto=0
+target=""
+for arg in "$@"; do
+  case "$arg" in
+    --include-necto) include_necto=1 ;;
+    -*) usage ;;
+    *) [ -z "$target" ] || usage; target="${arg%/}" ;;
+  esac
+done
+[ -n "$target" ] || usage
+
+work=""
+errlog=$(mktemp)
+trap 'rm -f "$errlog"; [ -n "$work" ] && rm -rf "$work"' EXIT
+apps=()
+dsym_dir=""
+case "$target" in
+  *.xcarchive)
+    for a in "$target"/Products/Applications/*.app; do [ -d "$a" ] && apps+=("$a"); done
+    dsym_dir="$target/dSYMs" ;;
+  *.ipa)
+    work=$(mktemp -d)
+    unzip -q "$target" -d "$work" || { echo "READ ERROR: unzip $target"; exit 2; }
+    for a in "$work"/Payload/*.app; do [ -d "$a" ] && apps+=("$a"); done ;;
+  *.app) apps=("$target") ;;
+  *) usage ;;
+esac
+[ "${#apps[@]}" -gt 0 ] || { echo "READ ERROR: no .app in $target"; exit 2; }
+
+found=0
+errors=0
+# An .ipa is unpacked into a temporary folder, so show `ipa:inner/path` instead of a
+# path that is about to disappear.
+shown() {
+  if [ -n "$work" ]; then printf '%s' "${1//$work\//$target:}"; else printf '%s' "$1"; fi
+}
+# check <rule> <file> <grep arguments...>
+# `command grep -a`: a shell function or alias can skip binary files (it happened in review).
+check() {
+  local rule=$1 file=$2; shift 2
+  command grep -a -q "$@" "$file"
+  case $? in
+    0) echo "FOUND [$rule] $(shown "$file")"; found=1 ;;
+    1) ;;
+    *) echo "READ ERROR: $(shown "$file")"; errors=1 ;;
+  esac
+}
+
+for app in "${apps[@]}"; do
+  # Traces left in names (bundles, folders, files). -L follows links. An error from find
+  # (permissions and the like) is a place we did not look at.
+  while IFS= read -r -d '' path; do echo "FOUND [maplocal] $(shown "$path")"; found=1; done < <(find -L "$app" -iname '*maplocal*' -print0 2>>"$errlog")
+  if [ "$include_necto" = 1 ]; then
+    while IFS= read -r -d '' path; do echo "FOUND [necto] $(shown "$path")"; found=1; done < <(find -L "$app" -name 'Necto_*' -print0 2>>"$errlog")
+  fi
+
+  executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist" 2>/dev/null || true)
+  [ -n "$executable" ] && [ -f "$app/$executable" ] || { echo "READ ERROR: main executable missing in $app"; errors=1; }
+
+  scanned_executable=0
+  while IFS= read -r -d '' file; do
+    if [ ! -r "$file" ]; then echo "READ ERROR: $(shown "$file")"; errors=1; continue; fi
+    [ "$file" = "$app/$executable" ] && scanned_executable=1
+    check maplocal "$file" -i -e 'maplocal'
+    check maplocal "$file" -e 'X-Map-Local'
+    if [ "$include_necto" = 1 ]; then check necto "$file" -e 'Necto'; fi
+  done < <(find -L "$app" -type f -print0 2>>"$errlog")
+  [ -z "$executable" ] || [ "$scanned_executable" = 1 ] || { echo "READ ERROR: main executable not scanned in $app"; errors=1; }
+done
+
+# Only the symbols of a dSYM are checked. The empty module names and build paths left in
+# __swift_ast are expected leftovers.
+if [ -n "$dsym_dir" ] && [ -d "$dsym_dir" ]; then
+  while IFS= read -r -d '' dwarf; do
+    if [ ! -r "$dwarf" ]; then echo "READ ERROR: $dwarf"; errors=1; continue; fi
+    if ! symbols=$(command nm -a "$dwarf" 2>/dev/null); then echo "READ ERROR: $dwarf (nm failed)"; errors=1; continue; fi
+    if printf '%s\n' "$symbols" | command grep -a -i -q 'maplocal'; then echo "FOUND [maplocal] $dwarf (symbols)"; found=1; fi
+  done < <(find "$dsym_dir" -path '*/Contents/Resources/DWARF/*' -type f -print0 2>>"$errlog")
+fi
+
+if [ -s "$errlog" ]; then
+  while IFS= read -r line; do echo "READ ERROR: $(shown "$line")"; done < "$errlog"
+  errors=1
+fi
+[ "$errors" = 0 ] || exit 2
+[ "$found" = 0 ] || exit 1
+echo "OK: no traces"
+exit 0

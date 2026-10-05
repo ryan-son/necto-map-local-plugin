@@ -1,0 +1,287 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		266E400B7904FABBD1081021 /* NectoSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 1D6DE03FB1FA7C60DD51B10A /* NectoSDK */; };
+		6344CEF3B972B65B804379D9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14DDC21D8CC182D64D54031 /* ContentView.swift */; };
+		8A9DE88D2E7F9C7EBA82FCF2 /* ShopDevApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9157B065F7309DDDFFDDE7 /* ShopDevApp.swift */; };
+		D776F2141AC5E5C10C0F3403 /* NectoMapLocalPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 0738BF17EAAB9B6D3999A29F /* NectoMapLocalPlugin */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		9D9157B065F7309DDDFFDDE7 /* ShopDevApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShopDevApp.swift; sourceTree = "<group>"; };
+		9E5F4916D1DAF994AFB8C2D1 /* ShopDev.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ShopDev.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A14DDC21D8CC182D64D54031 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		ED974C1252DFDA8FCDBEDD0A /* necto-map-local-plugin */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "necto-map-local-plugin"; path = ../../..; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1EA2FED6D1169D5BCB149AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D776F2141AC5E5C10C0F3403 /* NectoMapLocalPlugin in Frameworks */,
+				266E400B7904FABBD1081021 /* NectoSDK in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		054834B5B64180CE87F1BE09 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A14DDC21D8CC182D64D54031 /* ContentView.swift */,
+			);
+			name = Shared;
+			path = ../Shared;
+			sourceTree = "<group>";
+		};
+		6A0831FB086A8C2415992170 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				9D9157B065F7309DDDFFDDE7 /* ShopDevApp.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		6D49E741A319997095ED9DE2 = {
+			isa = PBXGroup;
+			children = (
+				E9D0B68EA7B2CED8BFCA92F0 /* Packages */,
+				054834B5B64180CE87F1BE09 /* Shared */,
+				6A0831FB086A8C2415992170 /* Sources */,
+				8E5C93507E7A13C516AA07C1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8E5C93507E7A13C516AA07C1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9E5F4916D1DAF994AFB8C2D1 /* ShopDev.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E9D0B68EA7B2CED8BFCA92F0 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				ED974C1252DFDA8FCDBEDD0A /* necto-map-local-plugin */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CA9755B089CB3A01A4BB961E /* ShopDev */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6818025C1051CE14D5C3F0C2 /* Build configuration list for PBXNativeTarget "ShopDev" */;
+			buildPhases = (
+				233DCD32F1BBF7A1393972D9 /* Sources */,
+				A1EA2FED6D1169D5BCB149AA /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShopDev;
+			packageProductDependencies = (
+				0738BF17EAAB9B6D3999A29F /* NectoMapLocalPlugin */,
+				1D6DE03FB1FA7C60DD51B10A /* NectoSDK */,
+			);
+			productName = ShopDev;
+			productReference = 9E5F4916D1DAF994AFB8C2D1 /* ShopDev.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		556BBABD1A3EE4DD741D3EAA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					CA9755B089CB3A01A4BB961E = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 3C7F15B1150F77140BE5C3FE /* Build configuration list for PBXProject "Dev" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6D49E741A319997095ED9DE2;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2CCAB5E20FC6428D9469A81D /* XCRemoteSwiftPackageReference "necto" */,
+				7F5E844D290B547F9278DDE4 /* XCLocalSwiftPackageReference "../../.." */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CA9755B089CB3A01A4BB961E /* ShopDev */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		233DCD32F1BBF7A1393972D9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6344CEF3B972B65B804379D9 /* ContentView.swift in Sources */,
+				8A9DE88D2E7F9C7EBA82FCF2 /* ShopDevApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		84435D2350B91346E8A87034 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B9E5EE8FD37FD809FBC3DFA3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Shop Dev";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.nectodemo.shop.dev;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3C7F15B1150F77140BE5C3FE /* Build configuration list for PBXProject "Dev" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				84435D2350B91346E8A87034 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6818025C1051CE14D5C3F0C2 /* Build configuration list for PBXNativeTarget "ShopDev" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B9E5EE8FD37FD809FBC3DFA3 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		7F5E844D290B547F9278DDE4 /* XCLocalSwiftPackageReference "../../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2CCAB5E20FC6428D9469A81D /* XCRemoteSwiftPackageReference "necto" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/toss/necto.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0738BF17EAAB9B6D3999A29F /* NectoMapLocalPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = NectoMapLocalPlugin;
+		};
+		1D6DE03FB1FA7C60DD51B10A /* NectoSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2CCAB5E20FC6428D9469A81D /* XCRemoteSwiftPackageReference "necto" */;
+			productName = NectoSDK;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 556BBABD1A3EE4DD741D3EAA /* Project object */;
+}

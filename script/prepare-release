@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+#
+# Check a release tag and write the release assets. The tag has to be a bare semver
+# (SwiftPM's `from: "0.1.0"` does not see `v0.1.0`), equal to the version in
+# Panel/public/manifest.json, with a `## <tag>` heading in CHANGELOG.md. The output
+# directory gets verify-release, verify-release.sha256 (`shasum -a 256` format, naming
+# the bare asset so `shasum -c` works next to the download) and release-notes.md (that
+# version's CHANGELOG section, then the hash). The section must exist once and not be
+# empty, and docs/release-builds.md and docs/release-builds-ko.md must download from the
+# tag.
+#
+# Exit codes: 0 ready / 1 the tag does not match / 2 usage error.
+#
+# Usage:
+#   script/prepare-release [--root <repository>] <tag> <out-dir>
+set -euo pipefail
+usage() { echo "Usage: prepare-release [--root <repository>] <tag> <out-dir>"; exit 2; }
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "${1:-}" = "--root" ]; then
+  [ $# -ge 2 ] || usage
+  root=$2
+  shift 2
+fi
+[ $# -eq 2 ] || usage
+tag=$1
+out=$2
+
+if ! printf '%s' "$tag" | command grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+  echo "The tag '$tag' is not a bare semver like 0.1.0. SwiftPM resolves 'from:' against bare semver tags only."
+  exit 1
+fi
+
+version=$(plutil -extract version raw -o - "$root/Panel/public/manifest.json")
+if [ "$version" != "$tag" ]; then
+  echo "Panel/public/manifest.json says $version, but the tag is $tag."
+  exit 1
+fi
+
+# Read as LF, so a CHANGELOG saved with CRLF still finds its heading (.gitattributes keeps
+# it LF in the repository).
+changelog=$(tr -d '\r' < "$root/CHANGELOG.md")
+headings=$(printf '%s\n' "$changelog" | command grep -cxF "## $tag" || true)
+if [ "$headings" = 0 ]; then
+  echo "CHANGELOG.md has no '## $tag' heading."
+  exit 1
+fi
+if [ "$headings" != 1 ]; then
+  echo "CHANGELOG.md has $headings '## $tag' headings. Merge them into one."
+  exit 1
+fi
+
+# The download URLs in "Blocking in CI" name a version; a release must not point users at
+# another one.
+for doc in docs/release-builds.md docs/release-builds-ko.md; do
+  if ! command grep -qF "/releases/download/$tag" "$root/$doc"; then
+    echo "$doc does not download from $tag. Update its 'Blocking in CI' URL."
+    exit 1
+  fi
+done
+
+# The lines under the heading, up to the next one outside a code fence, without the blank
+# lines around them.
+notes=$(printf '%s\n' "$changelog" | awk -v heading="## $tag" '
+  $0 == heading { inside = 1; next }
+  inside && /^(```|~~~)/ { fenced = !fenced }
+  inside && !fenced && /^## / { exit }
+  inside { lines[++n] = $0 }
+  END {
+    first = 1; while (first <= n && lines[first] ~ /^[[:space:]]*$/) first++
+    last = n; while (last >= first && lines[last] ~ /^[[:space:]]*$/) last--
+    for (i = first; i <= last; i++) print lines[i]
+  }
+')
+if [ -z "$notes" ]; then
+  echo "The '## $tag' section in CHANGELOG.md is empty. Say what changed."
+  exit 1
+fi
+
+mkdir -p "$out"
+cp "$root/script/verify-release" "$out/verify-release"
+(cd "$out" && shasum -a 256 verify-release > verify-release.sha256)
+hash=$(awk '{ print $1 }' "$out/verify-release.sha256")
+# The hash goes in the notes too: users pin it in their CI, so a replaced asset (and its
+# replaced .sha256) fails there instead of passing.
+printf '%s\n\n`verify-release` SHA-256: `%s`\n' "$notes" "$hash" > "$out/release-notes.md"
+echo "release $tag: $(cat "$out/verify-release.sha256")"

@@ -1,0 +1,266 @@
+#!/usr/bin/env bash
+#
+# Test script/verify-release against fake apps, and script/prepare-release,
+# script/lint-workflows, script/lint-guard, script/check-doc-pairs and
+# script/check-doc-links against fake repositories. Deterministic, and done in a few
+# seconds.
+#
+# Usage:
+#   script/test-verify-release
+set -u
+root="$(cd "$(dirname "$0")/.." && pwd)"
+verify="$root/script/verify-release"
+work=$(mktemp -d)
+trap 'chmod -R u+rwx "$work" 2>/dev/null; rm -rf "$work"' EXIT
+fail=0
+
+# app <archive name>: create an archive holding Sample.app with an Info.plist and its
+# executable, and print the archive's path.
+app() {
+  local d="$work/$1/Products/Applications/Sample.app"
+  mkdir -p "$d"
+  printf 'clean binary\0data' > "$d/Sample"
+  plutil -create xml1 "$d/Info.plist" && plutil -insert CFBundleExecutable -string Sample "$d/Info.plist"
+  echo "$work/$1"
+}
+# expect <name> <exit code> <output pattern> -- <command...>
+expect() {
+  local name=$1 code=$2 pattern=$3; shift 4
+  local out rc
+  out=$("$@" 2>&1); rc=$?
+  if [ "$rc" != "$code" ] || { [ -n "$pattern" ] && ! printf '%s' "$out" | command grep -q -- "$pattern"; }; then
+    echo "FAIL $name: rc=$rc (want $code) out=$out"; fail=1
+  else
+    echo "ok   $name"
+  fi
+}
+
+clean=$(app clean.xcarchive)
+expect "a clean archive passes" 0 "OK: no traces" -- "$verify" "$clean"
+expect "a trailing slash makes no difference" 0 "OK: no traces" -- "$verify" "$clean/"
+
+ours=$(app ours.xcarchive)
+printf 'x NectoMapLocalPlugin y' >> "$ours/Products/Applications/Sample.app/Sample"
+expect "our module name in the executable fails" 1 "FOUND \[maplocal\] .*Sample.app/Sample$" -- "$verify" "$ours"
+
+header=$(app header.xcarchive)
+printf 'X-Map-Local' > "$header/Products/Applications/Sample.app/strings.txt"
+expect "the marker header string fails" 1 "FOUND \[maplocal\] .*strings.txt" -- "$verify" "$header"
+
+bundle=$(app bundle.xcarchive)
+mkdir -p "$bundle/Products/Applications/Sample.app/necto-map-local-plugin_NectoMapLocalPlugin.bundle"
+expect "our bundle directory fails" 1 "FOUND \[maplocal\] .*NectoMapLocalPlugin.bundle" -- "$verify" "$bundle"
+
+linked=$(app linked.xcarchive)
+printf 'X-Map-Local' > "$work/outside.txt"
+ln -s "$work/outside.txt" "$linked/Products/Applications/Sample.app/link.txt"
+expect "a trace behind a symbolic link is found" 1 "FOUND \[maplocal\]" -- "$verify" "$linked"
+
+necto=$(app necto.xcarchive)
+printf 'NectoSDK' >> "$necto/Products/Applications/Sample.app/Sample"
+expect "a Necto trace passes by default" 0 "OK: no traces" -- "$verify" "$necto"
+expect "--include-necto fails on Necto content" 1 "FOUND \[necto\] .*Sample.app/Sample$" -- "$verify" --include-necto "$necto"
+expect "--include-necto after the target works the same" 1 "FOUND \[necto\]" -- "$verify" "$necto" --include-necto
+
+necto_name=$(app nectoname.xcarchive)
+mkdir -p "$necto_name/Products/Applications/Sample.app/Necto_NectoDefaultPlugins.bundle"
+expect "--include-necto fails on a Necto bundle name alone" 1 "FOUND \[necto\] .*Necto_NectoDefaultPlugins.bundle" -- "$verify" --include-necto "$necto_name"
+
+two=$(app two.xcarchive)
+mkdir -p "$two/Products/Applications/Second.app"
+printf 'NectoMapLocal' > "$two/Products/Applications/Second.app/Second"
+plutil -create xml1 "$two/Products/Applications/Second.app/Info.plist" && plutil -insert CFBundleExecutable -string Second "$two/Products/Applications/Second.app/Info.plist"
+expect "every app in the archive is checked" 1 "FOUND \[maplocal\] .*Second.app/Second$" -- "$verify" "$two"
+
+lockedfile=$(app lockedfile.xcarchive)
+printf 'secret' > "$lockedfile/Products/Applications/Sample.app/locked"
+chmod 000 "$lockedfile/Products/Applications/Sample.app/locked"
+expect "an unreadable file is an error, not a pass" 2 "READ ERROR" -- "$verify" "$lockedfile"
+
+lockeddir=$(app lockeddir.xcarchive)
+mkdir -p "$lockeddir/Products/Applications/Sample.app/Frameworks"
+printf 'NectoMapLocalPlugin' > "$lockeddir/Products/Applications/Sample.app/Frameworks/hidden"
+chmod 000 "$lockeddir/Products/Applications/Sample.app/Frameworks"
+expect "an unreadable folder is an error, not a pass" 2 "READ ERROR" -- "$verify" "$lockeddir"
+
+noexec=$(app noexec.xcarchive)
+rm "$noexec/Products/Applications/Sample.app/Sample"
+expect "a missing main executable is an error" 2 "READ ERROR" -- "$verify" "$noexec"
+
+both=$(app both.xcarchive)
+printf 'NectoMapLocalPlugin' >> "$both/Products/Applications/Sample.app/Sample"
+printf 'x' > "$both/Products/Applications/Sample.app/locked"; chmod 000 "$both/Products/Applications/Sample.app/locked"
+expect "a read error (2) wins over a trace" 2 "READ ERROR" -- "$verify" "$both"
+
+# dSYM symbols and .ipa files
+printf 'int maplocal_probe(void){return 1;}\nint main(void){return maplocal_probe();}\n' > "$work/dirty.c"
+printf 'int main(void){return 0;}\n' > "$work/tidy.c"
+(cd "$work" && cc -g -o dirty dirty.c && cc -g -o tidy tidy.c && dsymutil dirty -o dirty.dSYM 2>/dev/null && dsymutil tidy -o tidy.dSYM 2>/dev/null)
+
+dsymdirty=$(app dsymdirty.xcarchive)
+mkdir -p "$dsymdirty/dSYMs" && cp -R "$work/dirty.dSYM" "$dsymdirty/dSYMs/Sample.app.dSYM"
+expect "maplocal in dSYM symbols fails" 1 "FOUND \[maplocal\] .*(symbols)" -- "$verify" "$dsymdirty"
+
+dsymclean=$(app dsymclean.xcarchive)
+mkdir -p "$dsymclean/dSYMs" && cp -R "$work/tidy.dSYM" "$dsymclean/dSYMs/Sample.app.dSYM"
+expect "a clean dSYM passes" 0 "OK: no traces" -- "$verify" "$dsymclean"
+
+dsymlocked=$(app dsymlocked.xcarchive)
+mkdir -p "$dsymlocked/dSYMs" && cp -R "$work/tidy.dSYM" "$dsymlocked/dSYMs/Sample.app.dSYM"
+chmod 000 "$dsymlocked/dSYMs/Sample.app.dSYM/Contents/Resources/DWARF/tidy"
+expect "an unreadable DWARF file is an error" 2 "READ ERROR" -- "$verify" "$dsymlocked"
+
+dsymbad=$(app dsymbad.xcarchive)
+mkdir -p "$dsymbad/dSYMs/Sample.app.dSYM/Contents/Resources/DWARF"
+printf 'not a mach-o maplocal' > "$dsymbad/dSYMs/Sample.app.dSYM/Contents/Resources/DWARF/Sample"
+expect "a DWARF file that is not Mach-O is an error" 2 "READ ERROR" -- "$verify" "$dsymbad"
+
+ipadir="$work/ipasrc"; mkdir -p "$ipadir/Payload/Sample.app"
+printf 'clean' > "$ipadir/Payload/Sample.app/Sample"
+plutil -create xml1 "$ipadir/Payload/Sample.app/Info.plist" && plutil -insert CFBundleExecutable -string Sample "$ipadir/Payload/Sample.app/Info.plist"
+printf 'NectoMapLocalPlugin' > "$ipadir/Payload/Sample.app/Sample"
+(cd "$ipadir" && zip -qr "$work/x.ipa" Payload)
+expect "a trace in an .ipa is reported as ipa:inner/path" 1 "FOUND \[maplocal\] .*x.ipa:Payload/Sample.app/Sample" -- "$verify" "$work/x.ipa"
+
+expect "no arguments is a usage error" 2 "Usage" -- "$verify"
+expect "an unknown flag is a usage error" 2 "Usage" -- "$verify" --include-nekto "$clean"
+expect "two targets is a usage error" 2 "Usage" -- "$verify" "$clean" "$clean"
+
+# script/prepare-release: the tag must be a bare semver equal to the manifest version and
+# have a CHANGELOG heading; the assets are verify-release and its checksum.
+prepare="$root/script/prepare-release"
+# repo <name> <manifest version> <changelog heading>: a fake repository root.
+repo() {
+  local d="$work/$1"
+  mkdir -p "$d/Panel/public" "$d/script" "$d/docs"
+  printf '{\n  "id": "x",\n  "version": "%s"\n}\n' "$2" > "$d/Panel/public/manifest.json"
+  printf '# Changelog\n\n%s\n- First line\n- Second line\n\n## 0.0.9\n- Older\n' "$3" > "$d/CHANGELOG.md"
+  printf '#!/usr/bin/env bash\necho fake verifier\n' > "$d/script/verify-release"
+  for doc in docs/release-builds.md docs/release-builds-ko.md; do
+    printf 'base=https://github.com/x/y/releases/download/%s\n' "$2" > "$d/$doc"
+  done
+  echo "$d"
+}
+# changelog <repo> <printf format...>: replace a fake repository's CHANGELOG.md.
+changelog() { local d=$1; shift; printf "$@" > "$d/CHANGELOG.md"; }
+good=$(repo good 0.1.0 "## 0.1.0")
+expect "a tag equal to the manifest version with a CHANGELOG heading passes" 0 "" -- "$prepare" --root "$good" 0.1.0 "$work/out-good"
+expect "the checksum file verifies the copied asset" 0 "verify-release: OK" -- sh -c "cd '$work/out-good' && shasum -a 256 -c verify-release.sha256"
+expect "the checksum names the bare asset, not a path" 0 "" -- sh -c "[ \"\$(awk '{print \$2}' '$work/out-good/verify-release.sha256')\" = verify-release ]"
+expect "the asset is the repository's verify-release" 0 "" -- cmp "$good/script/verify-release" "$work/out-good/verify-release"
+expect "the release notes are that version's CHANGELOG section, then the asset's hash" 0 "" -- sh -c "[ \"\$(sed '\$d' '$work/out-good/release-notes.md')\" = \"\$(printf -- '- First line\n- Second line\n')\" ]"
+expect "the hash in the release notes is the one in verify-release.sha256" 0 "" -- sh -c "tail -1 '$work/out-good/release-notes.md' | command grep -qF \"\$(awk '{print \$1}' '$work/out-good/verify-release.sha256')\""
+expect "a tag that differs from the manifest fails" 1 "manifest.json says 0.1.0, but the tag is 0.1.1" -- "$prepare" --root "$good" 0.1.1 "$work/out-1"
+expect "a v-prefixed tag fails (SwiftPM needs a bare 0.1.0)" 1 "bare semver" -- "$prepare" --root "$good" v0.1.0 "$work/out-2"
+expect "a prerelease tag fails" 1 "bare semver" -- "$prepare" --root "$good" 0.1.0-rc1 "$work/out-3"
+nohead=$(repo nohead 0.1.0 "## Unreleased")
+expect "a missing CHANGELOG heading fails" 1 "CHANGELOG.md has no '## 0.1.0' heading" -- "$prepare" --root "$nohead" 0.1.0 "$work/out-4"
+prefix=$(repo prefix 0.1.0 "## 0.1.0.1")
+expect "a heading that only starts with the version does not count" 1 "no '## 0.1.0' heading" -- "$prepare" --root "$prefix" 0.1.0 "$work/out-5"
+empty=$(repo empty 0.1.0 "## 0.1.0"); changelog "$empty" '# Changelog\n\n## 0.1.0\n\n## 0.0.9\n- Older\n'
+expect "an empty CHANGELOG section fails" 1 "'## 0.1.0' section in CHANGELOG.md is empty" -- "$prepare" --root "$empty" 0.1.0 "$work/out-6"
+fenced=$(repo fenced 0.1.0 "## 0.1.0"); changelog "$fenced" '## 0.1.0\n- Before\n```md\n## Not a heading\n```\n- After\n\n## 0.0.9\n- Older\n'
+expect "a heading inside a code fence does not end the section" 0 "" -- "$prepare" --root "$fenced" 0.1.0 "$work/out-7"
+expect "the fenced section is carried whole" 0 "" -- command grep -qx -- "- After" "$work/out-7/release-notes.md"
+twice=$(repo twice 0.1.0 "## 0.1.0"); changelog "$twice" '## 0.1.0\n- One\n\n## 0.1.0\n- Two\n'
+expect "a repeated CHANGELOG heading fails" 1 "CHANGELOG.md has 2 '## 0.1.0' headings" -- "$prepare" --root "$twice" 0.1.0 "$work/out-8"
+crlf=$(repo crlf 0.1.0 "## 0.1.0"); changelog "$crlf" '## 0.1.0\r\n- Windows line\r\n'
+expect "a CRLF CHANGELOG is read as LF" 0 "" -- "$prepare" --root "$crlf" 0.1.0 "$work/out-9"
+expect "the notes from a CRLF CHANGELOG carry no carriage return" 1 "" -- command grep -q "$(printf '\r')" "$work/out-9/release-notes.md"
+stale=$(repo stale 0.1.0 "## 0.1.0"); printf 'base=https://github.com/x/y/releases/download/0.0.9\n' > "$stale/docs/release-builds-ko.md"
+expect "a release guide that downloads another version fails" 1 "docs/release-builds-ko.md does not download from 0.1.0" -- "$prepare" --root "$stale" 0.1.0 "$work/out-10"
+expect "prepare-release without arguments is a usage error" 2 "Usage" -- "$prepare"
+
+# script/lint-workflows: every `uses:` is pinned to a 40-hex commit.
+lint="$root/script/lint-workflows"
+# workflow <name> <uses line...>: a fake repository with one workflow.
+workflow() {
+  local d="$work/$1"; shift
+  mkdir -p "$d/.github/workflows"
+  { echo "jobs:"; echo "  x:"; echo "    steps:"; for u in "$@"; do echo "      $u"; done; } > "$d/.github/workflows/w.yml"
+  echo "$d"
+}
+sha=11d5960a326750d5838078e36cf38b85af677262
+expect "actions pinned to a commit SHA pass" 0 "OK: 2 actions" -- "$lint" "$(workflow pinned "- uses: actions/checkout@$sha # v4.4.0" "- uses: \"actions/setup-node@$sha\"")"
+expect "a local action passes but is not counted as pinned" 0 "OK: 1 action pinned" -- "$lint" "$(workflow local "- uses: ./.github/actions/x" "- uses: actions/checkout@$sha")"
+expect "a workflow with no actions fails, since the lint would check nothing" 1 "no actions found" -- "$lint" "$(workflow none "- run: echo hi")"
+expect "a flow mapping is read too" 1 "NOT PINNED: .*@v4$" -- "$lint" "$(workflow flow "- { uses: actions/checkout@v4 }")"
+expect "a quoted key is read too" 1 "NOT PINNED" -- "$lint" "$(workflow quoted "- \"uses\": actions/checkout@v4")"
+expect "a space before the colon is read too" 1 "NOT PINNED" -- "$lint" "$(workflow spaced "- uses : actions/checkout@v4")"
+composite=$(workflow composite "- uses: actions/checkout@$sha")
+mkdir -p "$composite/.github/actions/x"
+printf 'runs:\n  using: composite\n  steps:\n    - uses: actions/checkout@v4\n' > "$composite/.github/actions/x/action.yml"
+expect "an action inside a local composite action is checked" 1 "NOT PINNED: .github/actions/x/action.yml:4:" -- "$lint" "$composite"
+broken=$(workflow broken "- uses: [unclosed")
+expect "a workflow that is not YAML fails" 1 "can't parse" -- "$lint" "$broken"
+expect "a version tag fails" 1 "NOT PINNED: .github/workflows/w.yml:5:.*@v4$" -- "$lint" "$(workflow tagged "- uses: actions/checkout@$sha" "- uses: actions/checkout@v4")"
+expect "a branch fails" 1 "NOT PINNED" -- "$lint" "$(workflow branch "- uses: actions/checkout@main")"
+expect "a short SHA fails" 1 "NOT PINNED" -- "$lint" "$(workflow short "- uses: actions/checkout@11d5960")"
+expect "a uses: on its own line under a name fails too" 1 "NOT PINNED" -- "$lint" "$(workflow nested "- name: x" "  uses: actions/checkout@v4")"
+# script/lint-guard: after the header, one #if MAP_LOCAL_ENABLED region spans the file.
+guard="$root/script/lint-guard"
+# swiftfile <name> <body lines...>: a fake repository with one Swift file.
+swiftfile() {
+  local d="$work/$1"; shift
+  mkdir -p "$d/Sources/X" "$d/Tests"
+  { printf '//\n// Copyright\n//\n\n'; for l in "$@"; do echo "$l"; done; } > "$d/Sources/X/A.swift"
+  echo "$d"
+}
+expect "a file inside one guard passes" 0 "1 files OK" -- "$guard" "$(swiftfile guarded "#if MAP_LOCAL_ENABLED" "#if DEBUG" "let a = 1" "#endif" "#endif")"
+expect "a file that closes the guard and opens it again fails" 1 "NOT GUARDED" -- "$guard" "$(swiftfile reopened "#if MAP_LOCAL_ENABLED" "let a = 1" "#endif" "public let leaked = 1" "#if MAP_LOCAL_ENABLED" "#endif")"
+expect "an unbalanced #endif fails" 1 "NOT GUARDED" -- "$guard" "$(swiftfile unbalanced "#if MAP_LOCAL_ENABLED" "#endif" "#endif")"
+expect "an #else on the guard fails" 1 "NOT GUARDED" -- "$guard" "$(swiftfile elsed "#if MAP_LOCAL_ENABLED" "let a = 1" "#else" "let b = 1" "#endif")"
+
+# script/check-doc-pairs: X.md and X-ko.md keep the same headings, code blocks and links.
+pairs="$root/script/check-doc-pairs"
+# docpair <name> <English body> <Korean body>: a fake repository with docs/x.md and its
+# Korean copy (printf formats), next to a README pair that matches.
+docpair() {
+  local d="$work/$1"
+  mkdir -p "$d/docs"
+  printf '# R\n\n[ko](README-ko.md)\n' > "$d/README.md"
+  printf '# R\n\n[en](README.md)\n' > "$d/README-ko.md"
+  printf "$2" > "$d/docs/x.md"
+  printf "$3" > "$d/docs/x-ko.md"
+  echo "$d"
+}
+# kodoc <level-3 heading marker> <code block> <link target>: the Korean copy, varied.
+kodoc() {
+  printf '# 엑스\n\n[English](x.md)\n\n## 가\n\n[사용법](%s)과 [Necto](https://example.com)를 보세요.\n\n%s\n\n%s 나\n' "$3" "$2" "$1"
+}
+en='# X\n\n[한국어](x-ko.md)\n\n## A\n\nSee [usage](usage.md#matching) and [Necto](https://example.com).\n\n```bash\n# not a heading\n```\n\n### B\n'
+block='```bash\n# 제목 아님\n```'
+expect "a matching pair passes, reading -ko links, fragments and the language switch as equal" 0 "OK: 2 document pairs match" -- "$pairs" "$(docpair same "$en" "$(kodoc '###' "$block" 'usage-ko.md#매칭')")"
+expect "a heading of another level fails" 1 "HEADINGS DIFFER: docs/x.md has 3 (1 2 3), docs/x-ko.md has 3 (1 2 2)" -- "$pairs" "$(docpair level "$en" "$(kodoc '##' "$block" 'usage-ko.md')")"
+expect "a missing heading fails" 1 "HEADINGS DIFFER: docs/x.md has 3 (1 2 3), docs/x-ko.md has 2 (1 2)" -- "$pairs" "$(docpair count "$en" "$(kodoc '' "$block" 'usage-ko.md')")"
+expect "a heading inside a code block is not a heading" 1 "docs/x-ko.md has 4 (1 2 1 3)" -- "$pairs" "$(docpair fenced "$en" "$(kodoc '###' '# 제목 아님' 'usage-ko.md')")"
+expect "a missing code block fails" 1 "CODE BLOCKS DIFFER: docs/x.md has 1, docs/x-ko.md has 0" -- "$pairs" "$(docpair blocks "$en" "$(kodoc '###' '' 'usage-ko.md')")"
+expect "a link to another document fails" 1 "LINK ONLY IN docs/x-ko.md: docs/design.md" -- "$pairs" "$(docpair link "$en" "$(kodoc '###' "$block" 'design-ko.md')")"
+expect "a link outside the pair is not read as the language switch" 1 "LINK ONLY IN docs/x.md: docs/usage.md" -- "$pairs" "$(docpair self "$en" "$(kodoc '###' "$block" 'x-ko.md')")"
+quoted="$(kodoc '###' "$block" 'usage-ko.md')"'`[a](b.md)`\n<!--\n[c](d.md)\n## 주석\n-->\n'
+expect "links in code spans and headings or links in HTML comments are not counted" 0 "OK" -- "$pairs" "$(docpair quoted "$en" "$quoted")"
+orphan=$(docpair orphan "$en" "$(kodoc '###' "$block" 'usage-ko.md')"); printf '# 고아\n' > "$orphan/docs/y-ko.md"
+expect "a Korean copy without its English document fails" 1 "NO ENGLISH PAIR: docs/y-ko.md" -- "$pairs" "$orphan"
+alone="$work/alone"; mkdir -p "$alone"; printf '# A\n' > "$alone/README.md"
+expect "no pairs at all fails, since the check would prove nothing" 1 "no document pairs found" -- "$pairs" "$alone"
+
+# script/check-doc-links: every relative link resolves.
+links="$root/script/check-doc-links"
+# doclinks <name> <README body>: a fake repository with docs/usage.md and a README.
+doclinks() {
+  local d="$work/$1"
+  mkdir -p "$d/docs"
+  printf '# U\n' > "$d/docs/usage.md"
+  printf "$2" > "$d/README.md"
+  echo "$d"
+}
+expect "links to a file, a fragment and a folder pass; the web and headings are not checked" 0 "OK: 3 relative links" -- "$links" "$(doclinks fine '[u](docs/usage.md) [m](docs/usage.md#matching) [d](docs) [w](https://example.com) [h](#top)\n')"
+expect "a link to a missing file fails, with its line" 1 "BROKEN: README.md:2: docs/gone.md" -- "$links" "$(doclinks gone '# R\n[g](docs/gone.md)\n')"
+expect "a reference definition is checked too" 1 "BROKEN: README.md:1: docs/ref.md" -- "$links" "$(doclinks ref '[r]: docs/ref.md\n')"
+nested=$(doclinks nested '[u](docs/usage.md)\n'); printf '# U\n[r](../README.md)\n[s](README.md)\n' > "$nested/docs/usage.md"
+expect "a link from a nested document resolves against its folder" 1 "BROKEN: docs/usage.md:3: README.md" -- "$links" "$nested"
+expect "a missing image is pending, not a failure" 0 "PENDING: README.md:1: image docs/images/shot.png" -- "$links" "$(doclinks image '![s](docs/images/shot.png) [u](docs/usage.md)\n')"
+expect "links in code blocks, code spans and HTML comments are not read" 0 "OK: 1 relative link " -- "$links" "$(doclinks code '[u](docs/usage.md) `[a](a.md)`\n```\n[b](b.md)\n```\n<!-- [c](c.md)\n[d](d.md) -->\n')"
+expect "no relative links at all fails, since the check would prove nothing" 1 "no relative links found" -- "$links" "$(doclinks none '[w](https://example.com)\n')"
+[ "$(id -u)" != 0 ] || { echo "FAIL: running as root makes the read permission tests meaningless"; fail=1; }
+exit "$fail"
