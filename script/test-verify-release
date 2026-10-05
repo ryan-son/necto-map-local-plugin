@@ -254,7 +254,14 @@ doclinks() {
   printf "$2" > "$d/README.md"
   echo "$d"
 }
-expect "links to a file, a fragment and a folder pass; the web and headings are not checked" 0 "OK: 3 relative links" -- "$links" "$(doclinks fine '[u](docs/usage.md) [m](docs/usage.md#matching) [d](docs) [w](https://example.com) [h](#top)\n')"
+expect "links to a file, a heading and a folder pass; the web is not checked" 0 "OK: 3 relative links" -- "$links" "$(doclinks fine '# R\n[u](docs/usage.md) [m](docs/usage.md#u) [d](docs) [w](https://example.com) [h](#r)\n')"
+expect "a fragment that names no heading fails, with its line" 1 "BROKEN: README.md:1: docs/usage.md#matching" -- "$links" "$(doclinks anchor-missing '[m](docs/usage.md#matching)\n')"
+expect "a fragment in the same document is checked too" 1 "BROKEN: README.md:2: #nope" -- "$links" "$(doclinks anchor-self '# R\n[n](#nope) [u](docs/usage.md)\n')"
+slugs=$(doclinks anchor-slugs '[a](docs/usage.md#why-a-request-wasnt-mocked) [b](docs/usage.md#규칙-없는-요청) [c](docs/usage.md#code-title) [d](docs/usage.md#dup-1) [e](docs/usage.md#see-the-badge)\n')
+printf '# U\n## Why a request wasn'"'"'t mocked\n## 규칙 없는 요청\n## `code` Title\n## Dup\n## Dup\n## See [the badge](usage.md)\n' > "$slugs/docs/usage.md"
+expect "headings resolve as GitHub slugs: punctuation dropped, Korean kept, repeats numbered" 0 "OK: 6 relative links" -- "$links" "$slugs"
+anchorfence=$(doclinks anchor-fenced '[f](docs/usage.md#fake)\n'); printf '# U\n```\n## Fake\n```\n' > "$anchorfence/docs/usage.md"
+expect "a heading inside a code block is not an anchor" 1 "BROKEN: README.md:1: docs/usage.md#fake" -- "$links" "$anchorfence"
 expect "a link to a missing file fails, with its line" 1 "BROKEN: README.md:2: docs/gone.md" -- "$links" "$(doclinks gone '# R\n[g](docs/gone.md)\n')"
 expect "a reference definition is checked too" 1 "BROKEN: README.md:1: docs/ref.md" -- "$links" "$(doclinks ref '[r]: docs/ref.md\n')"
 nested=$(doclinks nested '[u](docs/usage.md)\n'); printf '# U\n[r](../README.md)\n[s](README.md)\n' > "$nested/docs/usage.md"
