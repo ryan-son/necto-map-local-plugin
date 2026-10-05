@@ -1,8 +1,8 @@
 # Publishes a release when a bare semver tag is pushed. For a device plugin the tag is
 # the release: apps resolve the Swift package at it. The release itself carries only
-# script/verify-release and its checksum, which "Blocking in CI" in docs/release-builds.md
-# downloads; the release notes carry the hash users pin. Turn on immutable releases
-# (CONTRIBUTING.md).
+# script/verify-release and its checksum, which "Block a release in CI" in
+# docs/release-builds.md downloads; the release notes carry the hash users pin. Turn on
+# immutable releases (CONTRIBUTING.md).
 #
 #   # set the version in Panel/public/manifest.json and add a "## <version>" CHANGELOG heading
 #   git tag 0.1.1 && git push --tags
