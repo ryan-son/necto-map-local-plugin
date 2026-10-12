@@ -230,7 +230,8 @@ that cookie is journaled. The panel notice shows it, and the next restore remove
 
 `maplocal.state` and `maplocal.state.observe` gain:
 
-- `mockedCookies`: the number of journal entries;
+- `mockedCookies`: the number of journal entries. Entries on the pending list do not
+  count, so a successful restore reads 0 at once;
 - `lastCookieRestore`: `{"trigger": "explicit" | "turnedOff" | "launch", "date", "deleted",
   "restored", "skipped"}`, or null. It tells an agent that attaches late whether the
   launch cleanup ran.
@@ -256,7 +257,10 @@ it never pushes the lists down (experience.md principle 5). The button calls
 
 - category `rules`: a mocked request at `.info`, a request passed through at `.debug`.
   Method, host, rule ID and outcome are public. The path is `.private`, because paths
-  carry IDs and tokens.
+  carry IDs and tokens. `.debug` lines are not kept unless a stream asks for them, so
+  the cost on a request is a formatted call that the system drops. This category is
+  request item 5, not part of the cookie work; it ships in the same branch only if the
+  user keeps it here.
 - category `cookies`: each journaled write, each restore with its trigger and counts, and
   each entry left alone. Cookie names and values are `.private`.
 
@@ -357,8 +361,11 @@ none today, so until then the log says iOS 16 was not measured.
 ## Review log
 
 Three adversarial reviews (cookie semantics with measurements on macOS 27, engine and
-contract, agent QA and safety) ran against the first draft. Each finding was checked
-against the code or a measurement before it was taken.
+contract, agent QA and safety) ran against the first draft. Cookie behavior claims rest
+on the reviewer's macOS scripts (not run on iOS). Code claims rest on the reviewers'
+file and line citations; `.empty` launching with `enabled == true` and the experience.md
+principles were re-read before deciding. The rest is reasoning, and the Necto
+measurements in Section 3 are what confirm it.
 
 | Finding | Decision |
 |---|---|
