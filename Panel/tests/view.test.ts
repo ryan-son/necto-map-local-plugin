@@ -4807,6 +4807,15 @@ describe("typing an allowed host", () => {
     expect(css).toMatch(/\.ml-host-group\s*\{[^}]*flex-wrap:\s*nowrap/);
     expect(css).toMatch(/\.ml-add-host\s*\{[^}]*min-width/);
   });
+
+  test("nothing in the first row gives up its width, so a narrow panel scrolls the row instead of stacking a label one syllable per line or laying the field over a candidate", () => {
+    expect(css).toMatch(/\.ml-head-state > \*,\s*\.ml-host-group > \*,\s*\.ml-add-host > \*\s*\{[^}]*flex-shrink:\s*0[^}]*white-space:\s*nowrap/);
+    expect(css).toMatch(/\.ml-add-host \.necto-field\s*\{[^}]*flex:\s*none/);
+    expect(css).not.toMatch(/\.ml-host-group\s*\{[^}]*min-width:\s*0/);
+    expect(css).toMatch(/\.ml-host-group\s*\{[^}]*flex:\s*1 0 auto/);
+    // The hint asks for no width of its own: it takes what is left and cuts itself short.
+    expect(css).toMatch(/\.ml-host-hint\s*\{[^}]*contain:\s*inline-size/);
+  });
 });
 
 describe("query condition editing", () => {
