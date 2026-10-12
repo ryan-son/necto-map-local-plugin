@@ -765,7 +765,8 @@ select {
 @container ml-panel (max-width: 639px) {
   /*
    * The allowed hosts fold behind one button and open over the content, so the header keeps
-   * its two rows and the first row fits without scrolling.
+   * its two rows. Hosts blocked in app code stay in the row, which still scrolls if they
+   * don't fit.
    */
   .ml-head { position: relative; }
   .ml-hosts-toggle { display: inline-flex; }

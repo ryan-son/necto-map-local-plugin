@@ -372,8 +372,10 @@ export class View {
       this.render();
     });
     document.addEventListener("keydown", (e) => this.rulesEscape(e));
-    // A press anywhere but the hosts, their button or a dialog they opened closes them.
-    document.addEventListener("pointerdown", (e) => {
+    // A click anywhere but the hosts, their button or a dialog they opened closes them. On
+    // click rather than pointerdown, so what was pressed acts first instead of being redrawn
+    // away under the pointer.
+    document.addEventListener("click", (e) => {
       if (!this.hostsOpen || !(e.target instanceof Element)) return;
       if (e.target.closest('[data-group="allowed-hosts"], [data-field="hosts-toggle"], .necto-dialog')) return;
       this.hostsOpen = false;

@@ -5802,10 +5802,12 @@ describe("a narrow panel folds the allowed hosts behind one button", () => {
     click($(root, '[data-add-host="dev.invalid"]'));
     await model.idle();
     expect(isOpen(root)).toBe(true);
-    $(root, '[data-group="allowed-hosts"]').dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    click($(root, '[data-group="allowed-hosts"]'));
     expect(isOpen(root)).toBe(true);
-    $(root, ".necto-tabs").dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    // The press outside still does its own job: the tab it lands on opens as the hosts close.
+    click([...root.querySelectorAll(".necto-tab")].find((x) => x.textContent?.startsWith("트래픽"))!);
     expect(isOpen(root)).toBe(false);
+    expect($(root, ".necto-tab[aria-selected=true]").textContent).toContain("트래픽");
   });
 
   test("Escape inside it closes it and goes back to the button, without reaching the rules", () => {
