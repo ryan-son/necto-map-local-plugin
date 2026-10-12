@@ -8,7 +8,7 @@ let enabled: [SwiftSetting] = [.define("MAP_LOCAL_ENABLED", .when(configuration:
 let package = Package(
     name: "necto-map-local-plugin",
     platforms: [
-        .iOS(.v17),
+        .iOS(.v16),
         .macOS(.v14),
     ],
     products: [

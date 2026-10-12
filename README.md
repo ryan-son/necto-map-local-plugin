@@ -53,7 +53,7 @@ the App Store. When you finish, your app shows a response you edited in the pane
   for both the Mac app and the SDK the app links. The package declares
   `.upToNextMinor(from: "0.2.0")`. A new Necto minor version, such as 0.3.0, needs a
   matching release of this plugin.
-- iOS 17 or later for the app. The engine and the tests also build on macOS 14.
+- iOS 16 or later for the app. The engine and the tests also build on macOS 14.
 - Xcode 26 or later. We measured the build configuration name rule and the release checks
   on Xcode 26. They also pass on Xcode 27.1 beta. CI runs on Xcode 26.
 - Node.js 22.12 or later, only to build the panel from source.
