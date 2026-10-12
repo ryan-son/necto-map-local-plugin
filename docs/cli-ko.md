@@ -50,6 +50,8 @@ necto-cli plugin help io.github.ryan-son.maplocal --device <id> --app <bundle>
 | `maplocal.rule.setActive` | `plugin send` | 규칙이 요청에 응답할 때 쓰는 응답을 바꿔요 |
 | `maplocal.requests.list` | `plugin send` | 앱 실행 후 최근 요청을 최대 500개까지 돌려줘요 |
 | `maplocal.requests.observe` | `plugin subscribe` | 지금부터 앱이 보내는 요청마다 이벤트를 하나씩 보내요 |
+| `maplocal.cookies.list` | `plugin send` | 목업 쿠키의 키(domain, path, name, layer, launch)를 돌려줘요. 값은 주지 않아요 |
+| `maplocal.cookies.restore` | `plugin send` | 목업 쿠키를 지우고 진짜 쿠키를 되돌려요. `"scope": "earlierLaunches"`면 이번 실행의 것은 그대로 둬요 |
 
 `network.list`, `network.detail`, `network.observe`는 Necto 네트워크 플러그인이 기록한 내용을
 돌려줘요. 앱이 그 플러그인을 등록했을 때만 쓸 수 있어요.
@@ -63,6 +65,14 @@ necto-cli plugin help io.github.ryan-son.maplocal --device <id> --app <bundle>
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.configuration.replace --device <id> --app <bundle> --input-file mocks.json
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.rule.setActive --device <id> --app <bundle> --input '{"baseRevision":3,"id":"login","response":"ok"}'
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.configuration.patch --device <id> --app <bundle> --input '{"baseRevision":3,"enabled":true}'
+```
+
+`maplocal.state`는 `mockedCookies`, `setAsideCookies`도 알려 주고, 되돌리기·보류·복귀가 한
+번이라도 일어났으면 `lastCookieChange`도 알려 줘요. 에이전트는 시나리오를 다음 명령으로
+끝내고, `maplocal.state`의 `mockedCookies`가 0이고 `authMocked`가 false인지 확인해요.
+
+```bash
+necto-cli plugin send io.github.ryan-son.maplocal maplocal.cookies.restore --device <id> --app <bundle> --input '{}'
 ```
 
 모든 오퍼레이션은 입력과 출력을 `Panel/public/manifest.json`에 선언해요. 필수 키·타입·
@@ -97,6 +107,8 @@ necto-cli plugin help io.github.ryan-son.maplocal <operation> --device <id> --ap
 | `INVALID_INPUT` | 잘못된 입력. Necto가 스키마로 먼저, 앱이 다시 검사해요 |
 | `OPERATION_UNAVAILABLE` | 없는 규칙이나 응답 |
 | `PROVIDER_FAILED` | 저장 실패 |
+| `OPERATION_UNAVAILABLE` | 쿠키 저널을 읽을 수 없을 때의 `maplocal.cookies.restore`(`cookieJournalUnreadable`) |
+| `PROVIDER_FAILED` | `maplocal.cookies.restore`가 쿠키는 바꿨지만 저널을 저장하지 못함(`cookieJournalSaveFailed`). `details`에 `deleted`, `restored`, `skipped`가 있어요 |
 
 앱이 낸 오류는 `details`에 `reason`, `code`, `params`, 영어 `message`, `revision`을 담아요.
 코드는 바뀌지 않으며 [Fixtures/message-codes.json](../Fixtures/message-codes.json)에 있어요.

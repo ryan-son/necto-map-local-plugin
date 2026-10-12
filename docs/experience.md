@@ -39,6 +39,8 @@ The user is an iOS developer or QA engineer with the simulator (or a device) and
 | ⑥ "Why isn't it working?" | A row shows the result (mocked / real server / blocked / unknown). When a rule matches a request that was not mocked, the detail says why in one line, in the engine's order — host blocked in app code (never mocked), Map Local off [Turn on], host not allowed [Add to allowed hosts], rule off [Turn on rule], or that it applies now — and a mocked request names a matching rule that another took precedence over, only while that other rule would still win. When only a rule that is off matches and there is no response to capture, the fix is the primary action (⌘↩), never a duplicate empty rule. A request whose result is unknown is never said to apply now |
 | ⑦ Sharing | "Copy configuration" and "Paste configuration" mean what their names say, and report the result |
 | ⑧ A flood | The selection stays put while the list keeps flowing, the line above the list counts what came after it under the current filters, and "Show newest" catches up in one action. A list too short to scroll moves the selection down a row per arrival, so the new request is in view. "Pause" freezes the list. (Selecting used to pause the time view; the first-use test found that hid the request just made in the app) |
+| ⑨ Compare with the real server and come back | Turn Map Local off, check the real server, turn it on: the mocked login cookie is back without a question, and while it was off the app's requests carried only real cookies |
+| ⑩ Clean up mocked cookies | The notice shows how many mocked cookies are in use or set aside, and "Discard mocked cookies" empties it in one action |
 
 ## Visual language
 

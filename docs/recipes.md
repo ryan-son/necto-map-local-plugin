@@ -23,6 +23,7 @@ window forward, in every Necto panel. Click again.
 - [Share a configuration](#share-a-configuration)
 - [Find out why a request wasn't mocked](#find-out-why-a-request-wasnt-mocked)
 - [Stop mocking](#stop-mocking)
+- [Run a QA scenario from an agent](#run-a-qa-scenario-from-an-agent)
 
 ## See a screen with different data
 
@@ -174,3 +175,22 @@ reason with its fix, and what to check when no rule matches at all.
 
 Rules stay as they are, ready for next time. To turn Map Local back on, use the panel or
 `necto-cli` ([necto-cli operations](cli.md#necto-cli-operations)). The app can't do it.
+
+## Run a QA scenario from an agent
+
+An agent drives Map Local through `necto-cli` ([necto-cli operations](cli.md#necto-cli-operations)).
+
+1. Before launch, write the scenario's rules into the app container. `scenario.json` is a
+   configuration: the `configuration` object of an export.
+
+   ```bash
+   container=$(xcrun simctl get_app_container booted <bundle> data)
+   cp scenario.json "$container/Library/Application Support/NectoMapLocal/configuration.json"
+   xcrun simctl launch booted <bundle>
+   ```
+
+2. Once Necto lists the app, clear what earlier runs left with `maplocal.cookies.restore`
+   and `{"scope":"earlierLaunches"}`.
+3. Act in the app, then check `maplocal.requests.list` and `maplocal.cookies.list`.
+4. End with `maplocal.cookies.restore`, and check that `maplocal.state` has
+   `mockedCookies` 0 and `authMocked` false.

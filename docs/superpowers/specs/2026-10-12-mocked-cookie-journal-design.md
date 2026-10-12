@@ -299,8 +299,8 @@ every source file it sits inside `#if MAP_LOCAL_ENABLED`.
 
 While `mockedCookies > 0` the header shows "N mocked cookies in use", and while
 `setAsideCookies > 0` it shows "N mocked cookies set aside; they return when Map Local is
-on". Either way it carries a "Discard mocked cookies" button. It sits in the header's fixed rows, so
-it never pushes the lists down (experience.md principle 5). The button calls
+on". Either way it carries a "Discard mocked cookies" button. It sits beside the mocked-session
+notice, in the panel's existing notice stack. The button calls
 `maplocal.cookies.restore`. No cookie name or value is shown. The badge does not change:
 set-aside cookies are not in storage, so nothing applies while Map Local is off.
 
