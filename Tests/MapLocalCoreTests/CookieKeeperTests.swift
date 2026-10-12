@@ -415,16 +415,102 @@ struct CookieKeeperTests {
     @Test("a mocked write a kill lost, leaving the real cookie, is set aside at launch and comes back when on")
     func lostWriteCountsAsRestored() throws {
         let f = Fixture()
-        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=86400")[0])
+        // One R, built once: parsing Max-Age twice can straddle a second and differ.
+        let real = Self.parse("sid=R; Path=/; Max-Age=86400")[0]
+        f.jar.set(real)
         f.keeper(launch: "L1").write(Self.parse("sid=M; Path=/; Max-Age=3600"), for: Self.url, mainDocumentURL: nil)
         // The kill lost the write before storage saved it: the relaunched storage holds R again.
-        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=86400")[0])
+        f.jar.set(real)
         let keeper = f.keeper(launch: "L2")
         let change = try keeper.reconcileAtLaunch(enabled: false)
         #expect(change.count(.skipped) == 0)
         #expect(keeper.counts == (0, 1))
         _ = try keeper.putBack(trigger: .turnedOn)
         #expect(f.value("sid") == "M")
+    }
+
+    // MARK: Final review findings
+
+    @Test("an HttpOnly mock over a plain real cookie is undone, off and on and discard alike")
+    func httpOnlyMockIsUndone() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=3600")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/; HttpOnly"), for: Self.url, mainDocumentURL: nil)
+        #expect(f.value("sid") == "M")
+        _ = try keeper.setAside(trigger: .turnedOff)
+        #expect(f.value("sid") == "R")
+        _ = try keeper.putBack(trigger: .turnedOn)
+        #expect(f.value("sid") == "M")
+        _ = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == "R")
+    }
+
+    @Test("an identical mocked write in a new launch belongs to that launch")
+    func identicalRewriteTakesTheNewLaunch() throws {
+        let f = Fixture()
+        let header = "sid=M; Path=/; Expires=Wed, 01 Jan 2031 00:00:00 GMT"
+        f.keeper(launch: "L1").write(Self.parse(header), for: Self.url, mainDocumentURL: nil)
+        let keeper = f.keeper(launch: "L2")
+        _ = try keeper.reconcileAtLaunch(enabled: true)
+        keeper.write(Self.parse(header), for: Self.url, mainDocumentURL: nil)
+        #expect(keeper.listing().first?.isCurrentLaunch == true)
+        _ = try keeper.discard(scope: .earlierLaunches)
+        #expect(f.value("sid") == "M")
+    }
+
+    @Test("the pending check does not revive a real cookie the user logged out of after a mocked logout was undone")
+    func pendingDoesNotReviveAfterRealLogout() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=86400")[0])
+        let first = f.keeper(launch: "L1")
+        first.write(Self.parse("sid=; Path=/; Max-Age=0"), for: Self.url, mainDocumentURL: nil)
+        _ = try first.discard(scope: .all)
+        #expect(f.value("sid") == "R")
+        f.jar.delete(CookieKey(domain: "www.example.com", path: "/", name: "sid")) // a real logout
+        _ = try f.keeper(launch: "L2").reconcileAtLaunch(enabled: true)
+        #expect(f.value("sid") == nil)
+    }
+
+    @Test("an entry dropped by on leaves nothing for the pending check to undo")
+    func droppedPutBackClearsPending() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=86400")[0])
+        let first = f.keeper(launch: "L1")
+        first.write(Self.parse("sid=M; Path=/; Max-Age=3600"), for: Self.url, mainDocumentURL: nil)
+        _ = try first.setAside(trigger: .turnedOff)
+        f.jar.set(Self.parse("sid=M; Path=/; Max-Age=3600")[0]) // the real server happens to send M while off
+        _ = try first.putBack(trigger: .turnedOn)               // storage changed while off: dropped
+        #expect(first.journal.pending.isEmpty)
+    }
+
+    @Test("a crash between the write and its second save still lets a discard bring the real cookie back")
+    func inFlightWriteIsRestored() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=86400")[0])
+        let before = CookieRecord(try #require(f.jar.cookie(CookieKey(domain: "www.example.com", path: "/", name: "sid"))))
+        // The journal as the first save leaves it, then the mock lands, then the process dies.
+        let entry = CookieEntry(
+            key: before.key, before: before, beforeLaunchID: "L1", written: .stored(before), launchID: "L1", inFlight: true
+        )
+        try f.store.saveCookieJournal(CookieJournal(entries: [entry]))
+        f.jar.set(Self.parse("sid=M; Path=/; Max-Age=3600")[0])
+        let keeper = f.keeper(launch: "L2")
+        _ = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == "R")
+    }
+
+    @Test("turning on and off from many threads leaves cookies matching the final switch", arguments: 0..<20)
+    func toggleStorm(seed: Int) throws {
+        let jar = StorageCookieJar.isolated()
+        let engine = MapLocalEngine(store: MemoryConfigurationStore(), blockedHosts: [], cookieJar: jar)
+        let url = URL(string: "https://maplocal.invalid/a")!
+        engine.writeMockedCookies(HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "sid=M; Path=/"], for: url), for: url, mainDocumentURL: nil)
+        DispatchQueue.concurrentPerform(iterations: 64) { i in
+            _ = try? engine.applyForcing(.patch(enabled: i.isMultiple(of: 2), allowedHosts: nil, unmatched: nil, order: nil))
+        }
+        let value = jar.cookie(CookieKey(domain: "maplocal.invalid", path: "/", name: "sid"))?.value
+        if engine.state.configuration.enabled { #expect(value == "M") } else { #expect(value == nil) }
     }
 }
 #endif

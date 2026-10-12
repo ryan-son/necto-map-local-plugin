@@ -123,8 +123,8 @@ final class CookieKeeper: Sendable {
 
     /// Writes a mocked response's cookies and journals what storage holds afterwards.
     ///
-    /// The entry is saved before the write, so a crash leaves an entry and never an
-    /// untracked mocked cookie. A failed save is logged and the journal stays in memory.
+    /// The entry is saved in flight before the write, so a crash leaves an entry a restore
+    /// still acts on. A failed save is logged and the journal stays in memory.
     func write(_ cookies: [HTTPCookie], for url: URL, mainDocumentURL: URL?) {
         lock.withLock { inner in
             for cookie in cookies {
@@ -143,18 +143,25 @@ final class CookieKeeper: Sendable {
                     launchID: launchID
                 )
                 if keepsBefore { entry.written = previous!.written }
+                entry.inFlight = true
                 Self.put(entry, at: index, in: &inner.journal)
                 inner.journal.pending.removeAll { $0.key == key }
                 save(inner)
                 jar.setCookies([cookie], for: url, mainDocumentURL: mainDocumentURL)
                 let after = stored(key)
                 if after == before {
-                    // The policy refused it, or it changed nothing: no write to undo.
-                    if previous == nil { inner.journal.entries.removeAll { $0.key == key } }
-                    else if let index { inner.journal.entries[index] = previous! }
+                    // The policy refused it, or it changed nothing: no write to undo. A mock
+                    // that wrote the same value again still makes the key this launch's.
+                    if var previous, let index {
+                        if previous.layer == .active, previous.written.matches(after) { previous.launchID = launchID }
+                        inner.journal.entries[index] = previous
+                    } else {
+                        inner.journal.entries.removeAll { $0.key == key }
+                    }
                 } else {
                     entry.written = after.map(CookieWrite.stored) ?? .deleted
                     entry.launchID = launchID
+                    entry.inFlight = nil
                     Self.put(entry, at: inner.journal.entries.firstIndex { $0.key == key }, in: &inner.journal)
                     Self.logger.info("Journaled a mocked cookie \(key.name, privacy: .private) for \(key.domain, privacy: .private)")
                 }
@@ -176,10 +183,17 @@ final class CookieKeeper: Sendable {
     }
 
     /// Puts the real cookie back, or deletes the key when there was none.
+    /// Stores `cookie` under its key. Storage refuses to replace an HttpOnly cookie with one
+    /// that is not (measured), so the old one is deleted first.
+    private func replace(_ cookie: HTTPCookie) {
+        jar.delete(CookieKey(cookie))
+        jar.set(cookie)
+    }
+
     private func putBefore(_ entry: CookieEntry) {
         if let before = entry.before {
             if isAlive(before, readIn: entry.beforeLaunchID), let cookie = before.cookie {
-                jar.set(cookie)
+                replace(cookie)
             } else {
                 jar.delete(entry.key)
             }
@@ -198,6 +212,12 @@ final class CookieKeeper: Sendable {
         // The real cookie is already back: storage writes lazily, so a kill can lose the
         // mock's write. Nothing else changed it, so this counts as restored.
         if let before = entry.before, current == before { return .restored }
+        // The process died between the write and its read-back, and the key changed: the
+        // change is the mock's.
+        if entry.inFlight == true, current != entry.before {
+            putBefore(entry)
+            return entry.before == nil ? .deleted : .restored
+        }
         if current == nil {
             guard goneByItself(entry) else { return .gone }
             putBefore(entry)
@@ -209,7 +229,7 @@ final class CookieKeeper: Sendable {
     /// Runs `body` on the journal and saves it. Storage changes first and the journal is
     /// saved after. If the save fails the journal in memory goes back to what is on disk.
     private func change(
-        _ trigger: CookieTrigger,
+        _ trigger: @autoclosure () -> CookieTrigger,
         _ body: (inout CookieJournal) -> [CookieEntryResult]
     ) throws -> CookieChange {
         // `body` runs synchronously inside the lock and never escapes, so it need not be
@@ -219,7 +239,9 @@ final class CookieKeeper: Sendable {
                 throw MapLocalMessage(.cookieJournalUnreadable, ["error": "read-only"])
             }
             var journal = inner.journal
-            let change = CookieChange(trigger: trigger, date: now(), results: body(&journal))
+            let results = body(&journal)
+            let trigger = trigger()
+            let change = CookieChange(trigger: trigger, date: now(), results: results)
             do {
                 try store.saveCookieJournal(journal)
             } catch {
@@ -252,7 +274,7 @@ final class CookieKeeper: Sendable {
                     continue
                 }
                 let action = restore(entry)
-                if action == .deleted || action == .restored { journal.pending.append(entry) }
+                if action == .deleted || action == .restored, Self.canRecheck(entry) { journal.pending.append(entry) }
                 results.append(CookieEntryResult(key: entry.key, action: action))
             }
             journal.entries = kept
@@ -271,7 +293,7 @@ final class CookieKeeper: Sendable {
             let action = restore(entry)
             results.append(CookieEntryResult(key: entry.key, action: action))
             guard action == .deleted || action == .restored, !goneByItself(entry) else { continue }
-            journal.pending.append(entry)
+            if Self.canRecheck(entry) { journal.pending.append(entry) }
             entry.layer = .setAside
             entry.restoredTo = stored(entry.key)
             kept.append(entry)
@@ -290,6 +312,7 @@ final class CookieKeeper: Sendable {
             }
             let unchanged = stored(entry.key) == entry.restoredTo
             guard unchanged, !goneByItself(entry) else {
+                journal.pending.removeAll { $0.key == entry.key }
                 results.append(CookieEntryResult(key: entry.key, action: .dropped))
                 continue
             }
@@ -299,7 +322,7 @@ final class CookieKeeper: Sendable {
                     results.append(CookieEntryResult(key: entry.key, action: .dropped))
                     continue
                 }
-                jar.set(cookie)
+                replace(cookie)
             case .deleted:
                 jar.delete(entry.key)
             }
@@ -323,8 +346,17 @@ final class CookieKeeper: Sendable {
 
     /// Matches the cookies to the switch: off sets aside, on puts back. Idempotent, so the
     /// engine can call it after any write that may have flipped `enabled`.
-    func sync(enabled: Bool, trigger: CookieTrigger) throws -> CookieChange {
-        enabled ? try putBack(trigger: trigger) : try setAside(trigger: trigger)
+    ///
+    /// `enabled` is read inside this keeper's lock, so of two racing calls the later one
+    /// sees the later switch and runs last. The engine's state lock may be taken inside it;
+    /// the keeper's lock is never taken while the state lock is held.
+    func sync(enabled: () -> Bool) throws -> CookieChange {
+        var trigger = CookieTrigger.turnedOn
+        return try change(trigger) { journal in
+            let on = enabled()
+            trigger = on ? .turnedOn : .turnedOff
+            return on ? putBack(&journal) : setAside(&journal)
+        }
     }
 
     /// Runs once per launch, before the first request after the plugin is created.
@@ -349,6 +381,10 @@ final class CookieKeeper: Sendable {
             return results
         }
     }
+
+    /// A restore of a mocked deletion cannot be checked again: an empty key after a kill
+    /// looks the same as a real logout, and reviving a logged-out cookie is worse.
+    static func canRecheck(_ entry: CookieEntry) -> Bool { entry.written != .deleted }
 
     private static func put(_ entry: CookieEntry, at index: Int?, in journal: inout CookieJournal) {
         if let index { journal.entries[index] = entry } else { journal.entries.append(entry) }

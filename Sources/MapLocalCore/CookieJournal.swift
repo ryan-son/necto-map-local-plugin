@@ -40,6 +40,9 @@ public struct CookieEntry: Codable, Equatable, Sendable {
     public var layer: Layer = .active
     /// For a set-aside entry, what storage held right after it was set aside.
     public var restoredTo: CookieRecord?
+    /// Saved before the mock's write and cleared after it is read back. An entry still in
+    /// flight means the process died in between, so the mock may be in storage.
+    public var inFlight: Bool?
 }
 
 /// Every key Map Local's mocks have written, kept in the app's container.

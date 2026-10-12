@@ -191,10 +191,8 @@ public final class MapLocalEngine: Sendable {
     /// writes racing still end with cookies that match the last state. A failure never
     /// fails the write that caused it.
     private func syncCookies() {
-        let enabled = lock.withLock { $0.configuration.enabled }
-        let trigger: CookieTrigger = enabled ? .turnedOn : .turnedOff
         do {
-            publishCookies(try cookies.sync(enabled: enabled, trigger: trigger))
+            publishCookies(try cookies.sync { lock.withLock { $0.configuration.enabled } })
         } catch let failure as CookieSaveFailure {
             publishCookies(nil, issue: MapLocalMessage(.cookieJournalSaveFailed, ["error": failure.error]))
         } catch {
