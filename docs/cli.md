@@ -69,10 +69,11 @@ necto-cli plugin send io.github.ryan-son.maplocal maplocal.rule.setActive --devi
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.configuration.patch --device <id> --app <bundle> --input '{"baseRevision":3,"enabled":true}'
 ```
 
-`maplocal.state` also reports `mockedCookies`, `setAsideCookies` and, once a restore,
-set-aside or put-back has run, `lastCookieChange`. An agent ends a scenario with this
-command, then checks that `mockedCookies` is 0 and `authMocked` is false in
-`maplocal.state`:
+`maplocal.state` also reports `mockedCookies`, `setAsideCookies` and `lastCookieChange`:
+what the last restore, set-aside or put-back did, present from launch unless the cookie
+journal could not be read or saved. An agent ends a scenario with this command, then
+checks that `mockedCookies` is 0 and `authMocked` is false in `maplocal.state`
+([Run a QA scenario from an agent](recipes.md#run-a-qa-scenario-from-an-agent)):
 
 ```bash
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.cookies.restore --device <id> --app <bundle> --input '{}'

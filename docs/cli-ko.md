@@ -67,9 +67,11 @@ necto-cli plugin send io.github.ryan-son.maplocal maplocal.rule.setActive --devi
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.configuration.patch --device <id> --app <bundle> --input '{"baseRevision":3,"enabled":true}'
 ```
 
-`maplocal.state`는 `mockedCookies`, `setAsideCookies`도 알려 주고, 되돌리기·보류·복귀가 한
-번이라도 일어났으면 `lastCookieChange`도 알려 줘요. 에이전트는 시나리오를 다음 명령으로
-끝내고, `maplocal.state`의 `mockedCookies`가 0이고 `authMocked`가 false인지 확인해요.
+`maplocal.state`는 `mockedCookies`, `setAsideCookies`, `lastCookieChange`도 알려 줘요.
+`lastCookieChange`는 마지막 되돌리기·보류·복귀가 한 일로, 쿠키 저널을 읽거나 저장하지 못한
+경우가 아니면 앱이 시작될 때부터 있어요. 에이전트는 시나리오를 다음 명령으로 끝내고,
+`maplocal.state`의 `mockedCookies`가 0이고 `authMocked`가 false인지 확인해요
+([에이전트로 QA 시나리오 돌리기](recipes-ko.md#에이전트로-qa-시나리오-돌리기)).
 
 ```bash
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.cookies.restore --device <id> --app <bundle> --input '{}'
