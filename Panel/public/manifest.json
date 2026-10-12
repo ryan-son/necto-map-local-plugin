@@ -93,7 +93,51 @@
           },
           "lastCookieChange": {
             "type": "object",
-            "description": "What the last cookie restore, set-aside or put-back did this launch: trigger (explicit, turnedOff, turnedOn or launch), date (milliseconds since 1970) and the counts deleted, restored, skipped, reapplied and dropped. Absent until one runs."
+            "description": "What the last cookie restore, set-aside or put-back did this launch. The launch check always runs, so it is present from launch, with trigger launch, unless the cookie journal could not be read or saved then. date is milliseconds since 1970.",
+            "properties": {
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "explicit",
+                  "turnedOff",
+                  "turnedOn",
+                  "launch"
+                ]
+              },
+              "date": {
+                "type": "number"
+              },
+              "deleted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "restored": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "skipped": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reapplied": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dropped": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "trigger",
+              "date",
+              "deleted",
+              "restored",
+              "skipped",
+              "reapplied",
+              "dropped"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -186,7 +230,51 @@
           },
           "lastCookieChange": {
             "type": "object",
-            "description": "What the last cookie restore, set-aside or put-back did this launch: trigger (explicit, turnedOff, turnedOn or launch), date (milliseconds since 1970) and the counts deleted, restored, skipped, reapplied and dropped. Absent until one runs."
+            "description": "What the last cookie restore, set-aside or put-back did this launch. The launch check always runs, so it is present from launch, with trigger launch, unless the cookie journal could not be read or saved then. date is milliseconds since 1970.",
+            "properties": {
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "explicit",
+                  "turnedOff",
+                  "turnedOn",
+                  "launch"
+                ]
+              },
+              "date": {
+                "type": "number"
+              },
+              "deleted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "restored": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "skipped": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reapplied": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dropped": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "trigger",
+              "date",
+              "deleted",
+              "restored",
+              "skipped",
+              "reapplied",
+              "dropped"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

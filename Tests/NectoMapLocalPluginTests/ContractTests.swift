@@ -232,6 +232,21 @@ struct ContractTests {
         let restoredState = NectoMapLocalPlugin.encode(engine.state)
         #expect(restoredState["lastCookieChange"] != nil)
         #expect(NectoJSONSchema.validate(restoredState, against: try Self.schema("maplocal.state", "outputSchema")) == nil)
+        // lastCookieChange's shape is part of the contract: a drifted field must fail.
+        for id in ["maplocal.state", "maplocal.state.observe"] {
+            for (key, value) in [("date", JSONValue.string("now")), ("trigger", .string("sometime")), ("extra", .number(1))] {
+                guard case var .object(object) = try restoredState.decode(JSONValue.self),
+                      case var .object(change) = object["lastCookieChange"]
+                else {
+                    Issue.record("no lastCookieChange")
+                    continue
+                }
+                change[key] = value
+                object["lastCookieChange"] = .object(change)
+                let drifted = try NectoJSONValue(encoding: JSONValue.object(object))
+                #expect(NectoJSONSchema.validate(drifted, against: try Self.schema(id, "outputSchema")) != nil, "\(id) \(key)")
+            }
+        }
         for (id, output) in outputs {
             let failure = NectoJSONSchema.validate(output, against: try Self.schema(id, "outputSchema"))
             #expect(failure == nil, "\(id): \(String(describing: failure))")
