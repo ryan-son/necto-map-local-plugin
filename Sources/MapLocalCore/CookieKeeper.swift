@@ -195,6 +195,9 @@ final class CookieKeeper: Sendable {
             putBefore(entry)
             return entry.before == nil ? .deleted : .restored
         }
+        // The real cookie is already back: storage writes lazily, so a kill can lose the
+        // mock's write. Nothing else changed it, so this counts as restored.
+        if let before = entry.before, current == before { return .restored }
         if current == nil {
             guard goneByItself(entry) else { return .gone }
             putBefore(entry)

@@ -411,5 +411,20 @@ struct CookieKeeperTests {
     static func record(_ write: CookieWrite) -> CookieRecord? {
         if case let .stored(record) = write { record } else { nil }
     }
+
+    @Test("a mocked write a kill lost, leaving the real cookie, is set aside at launch and comes back when on")
+    func lostWriteCountsAsRestored() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=86400")[0])
+        f.keeper(launch: "L1").write(Self.parse("sid=M; Path=/; Max-Age=3600"), for: Self.url, mainDocumentURL: nil)
+        // The kill lost the write before storage saved it: the relaunched storage holds R again.
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=86400")[0])
+        let keeper = f.keeper(launch: "L2")
+        let change = try keeper.reconcileAtLaunch(enabled: false)
+        #expect(change.count(.skipped) == 0)
+        #expect(keeper.counts == (0, 1))
+        _ = try keeper.putBack(trigger: .turnedOn)
+        #expect(f.value("sid") == "M")
+    }
 }
 #endif
