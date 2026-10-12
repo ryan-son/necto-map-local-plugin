@@ -13,6 +13,56 @@ public struct CookieListing: Equatable, Sendable {
     public var isCurrentLaunch: Bool
 }
 
+/// Which entries a discard takes.
+public enum CookieScope: String, Sendable, CaseIterable {
+    case all
+    /// Only entries written in an earlier launch, so an agent can clear what earlier runs
+    /// left without touching this launch's pre-attach mocks.
+    case earlierLaunches
+}
+
+public enum CookieTrigger: String, Sendable {
+    case explicit, turnedOff, turnedOn, launch
+}
+
+public struct CookieEntryResult: Equatable, Sendable {
+    public enum Action: String, Sendable {
+        /// The mock created the cookie, and it was deleted.
+        case deleted
+        /// The real cookie was put back.
+        case restored
+        /// Something else rewrote the cookie, so it was left.
+        case skipped
+        /// Something else deleted the cookie, so it was left.
+        case gone
+        /// A set-aside mocked cookie was put back.
+        case reapplied
+        /// The entry was dropped without touching storage.
+        case dropped
+    }
+
+    public var key: CookieKey
+    public var action: Action
+}
+
+/// What one restore, set-aside or put-back did.
+public struct CookieChange: Equatable, Sendable {
+    public var trigger: CookieTrigger
+    public var date: Date
+    public var results: [CookieEntryResult]
+
+    public func count(_ action: CookieEntryResult.Action) -> Int {
+        results.filter { $0.action == action }.count
+    }
+}
+
+/// Storage changed but the journal could not be saved. The journal in memory still
+/// matches the file, so the next launch does not undo a cleanup the caller was told of.
+public struct CookieSaveFailure: Error, Sendable {
+    public var change: CookieChange
+    public var error: String
+}
+
 /// Writes mocked cookies, journals them, and brings real ones back.
 ///
 /// One lock covers reading a key, writing it, journaling it and restoring it, so a
@@ -110,6 +160,100 @@ final class CookieKeeper: Sendable {
                 }
                 save(inner)
             }
+        }
+    }
+
+    /// Whether `record`, read in launch `launch`, could still exist now.
+    func isAlive(_ record: CookieRecord, readIn launch: String) -> Bool {
+        !record.hasExpired(at: now()) && !(record.isSession && launch != launchID)
+    }
+
+    /// Whether the mock's own cookie is gone by its own nature: expired, or a session
+    /// cookie of an earlier launch.
+    func goneByItself(_ entry: CookieEntry) -> Bool {
+        guard case let .stored(record) = entry.written else { return false }
+        return !isAlive(record, readIn: entry.launchID)
+    }
+
+    /// Puts the real cookie back, or deletes the key when there was none.
+    private func putBefore(_ entry: CookieEntry) {
+        if let before = entry.before {
+            if isAlive(before, readIn: entry.beforeLaunchID), let cookie = before.cookie {
+                jar.set(cookie)
+            } else {
+                jar.delete(entry.key)
+            }
+        } else {
+            jar.delete(entry.key)
+        }
+    }
+
+    /// The restore table in the spec, for one entry.
+    func restore(_ entry: CookieEntry) -> CookieEntryResult.Action {
+        let current = stored(entry.key)
+        if entry.written.matches(current) {
+            putBefore(entry)
+            return entry.before == nil ? .deleted : .restored
+        }
+        if current == nil {
+            guard goneByItself(entry) else { return .gone }
+            putBefore(entry)
+            return .restored
+        }
+        return .skipped
+    }
+
+    /// Runs `body` on the journal and saves it. Storage changes first and the journal is
+    /// saved after. If the save fails the journal in memory goes back to what is on disk.
+    private func change(
+        _ trigger: CookieTrigger,
+        _ body: (inout CookieJournal) -> [CookieEntryResult]
+    ) throws -> CookieChange {
+        // `body` runs synchronously inside the lock and never escapes, so it need not be
+        // `Sendable`.
+        try lock.withLockUnchecked { inner in
+            guard !inner.readOnly else {
+                throw MapLocalMessage(.cookieJournalUnreadable, ["error": "read-only"])
+            }
+            var journal = inner.journal
+            let change = CookieChange(trigger: trigger, date: now(), results: body(&journal))
+            do {
+                try store.saveCookieJournal(journal)
+            } catch {
+                throw CookieSaveFailure(change: change, error: error.localizedDescription)
+            }
+            inner.journal = journal
+            Self.logger.info("""
+                Cookies \(trigger.rawValue, privacy: .public): \
+                deleted \(change.count(.deleted)), restored \(change.count(.restored)), \
+                skipped \(change.count(.skipped)), gone \(change.count(.gone)), \
+                reapplied \(change.count(.reapplied)), dropped \(change.count(.dropped))
+                """)
+            return change
+        }
+    }
+
+    /// The explicit restore: every active entry in `scope` is restored and every entry in
+    /// it is dropped, set aside or not.
+    func discard(scope: CookieScope) throws -> CookieChange {
+        try change(.explicit) { journal in
+            var results: [CookieEntryResult] = []
+            var kept: [CookieEntry] = []
+            for entry in journal.entries {
+                if scope == .earlierLaunches, entry.launchID == launchID {
+                    kept.append(entry)
+                    continue
+                }
+                if entry.layer == .setAside {
+                    results.append(CookieEntryResult(key: entry.key, action: .dropped))
+                    continue
+                }
+                let action = restore(entry)
+                if action == .deleted || action == .restored { journal.pending.append(entry) }
+                results.append(CookieEntryResult(key: entry.key, action: action))
+            }
+            journal.entries = kept
+            return results
         }
     }
 

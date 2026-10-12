@@ -10,7 +10,8 @@ import Testing
 /// A clock the tests move by hand.
 final class TestNow: @unchecked Sendable {
     private let lock = NSLock()
-    private var value = Date(timeIntervalSince1970: 1_800_000_000)
+    /// Starts at the real time, because `Max-Age` is counted from it.
+    private var value = Date()
     var date: Date { lock.withLock { value } }
     func advance(_ seconds: TimeInterval) { lock.withLock { value += seconds } }
 }
@@ -145,6 +146,140 @@ struct CookieKeeperTests {
         #expect(listing.first { $0.key.name == "old" }?.isCurrentLaunch == false)
         #expect(listing.first { $0.key.name == "new" }?.isCurrentLaunch == true)
         #expect(listing.allSatisfy { $0.layer == .active })
+    }
+
+    @Test("discarding a created cookie deletes it")
+    func discardCreated() throws {
+        let f = Fixture()
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        let change = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == nil)
+        #expect(change.count(.deleted) == 1)
+        #expect(keeper.journal.entries.isEmpty)
+    }
+
+    @Test("discarding an overwritten cookie restores the real one")
+    func discardOverwritten() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=3600; HttpOnly")[0])
+        let keeper = f.keeper()
+        // Storage refuses to replace an HttpOnly cookie with one that is not (measured).
+        keeper.write(Self.parse("sid=M; Path=/; HttpOnly"), for: Self.url, mainDocumentURL: nil)
+        let change = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == "R")
+        #expect(f.jar.cookie(CookieKey(domain: "www.example.com", path: "/", name: "sid"))?.isHTTPOnly == true)
+        #expect(change.count(.restored) == 1)
+    }
+
+    @Test("discarding after a mocked deletion brings the real cookie back")
+    func discardRestoresAfterMockedDeletion() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=; Path=/; Max-Age=0"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == "R")
+    }
+
+    @Test("a cookie something else rewrote is left and skipped")
+    func discardSkipsRewritten() throws {
+        let f = Fixture()
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        f.jar.set(Self.parse("sid=R2; Path=/")[0])
+        let change = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == "R2")
+        #expect(change.count(.skipped) == 1)
+    }
+
+    @Test("a cookie something else deleted is left gone")
+    func discardLeavesDeleted() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/; Max-Age=3600"), for: Self.url, mainDocumentURL: nil)
+        f.jar.delete(CookieKey(domain: "www.example.com", path: "/", name: "sid"))
+        let change = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == nil)
+        #expect(change.count(.gone) == 1)
+    }
+
+    @Test("a mocked cookie that expired by itself brings the real one back")
+    func discardAfterMockExpired() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=86400")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/; Max-Age=60"), for: Self.url, mainDocumentURL: nil)
+        f.jar.delete(CookieKey(domain: "www.example.com", path: "/", name: "sid")) // storage purged it
+        f.now.advance(120)
+        _ = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == "R")
+    }
+
+    @Test("an expired before is not resurrected")
+    func discardSkipsExpiredBefore() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=60")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        f.now.advance(120)
+        _ = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == nil)
+    }
+
+    @Test("a real cookie with the same name on another domain or path is untouched")
+    func discardLeavesOtherKeys() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=OTHER; Path=/other")[0])
+        f.jar.set(Self.parse("sid=DOMAIN; Path=/; Domain=example.com")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.discard(scope: .all)
+        #expect(f.value("sid", path: "/other") == "OTHER")
+        #expect(f.value("sid", domain: ".example.com") == "DOMAIN")
+    }
+
+    @Test("earlierLaunches discards only entries written in earlier launches")
+    func discardEarlierLaunches() throws {
+        let f = Fixture()
+        f.keeper(launch: "L1").write(Self.parse("old=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        let keeper = f.keeper(launch: "L2")
+        keeper.write(Self.parse("new=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.discard(scope: .earlierLaunches)
+        #expect(f.value("old") == nil)
+        #expect(f.value("new") == "M")
+        #expect(keeper.journal.entries.map(\.key.name) == ["new"])
+    }
+
+    @Test("restored entries go on the pending list")
+    func discardFillsPending() throws {
+        let f = Fixture()
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.discard(scope: .all)
+        #expect(keeper.journal.pending.map(\.key.name) == ["sid"])
+    }
+
+    @Test("a failed save throws with the counts and leaves the journal as it was on disk")
+    func discardKeepsJournalWhenSaveFails() throws {
+        let f = Fixture()
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        let onDisk = f.store.journal
+        f.store.failSavingJournal()
+        #expect {
+            try keeper.discard(scope: .all)
+        } throws: { error in
+            (error as? CookieSaveFailure)?.change.count(.deleted) == 1
+        }
+        #expect(.loaded(keeper.journal) == onDisk)
+    }
+
+    @Test("an unreadable journal refuses a discard")
+    func discardReadOnly() {
+        let keeper = Fixture(journal: .unreadable("locked")).keeper()
+        #expect(throws: MapLocalMessage.self) { try keeper.discard(scope: .all) }
     }
 }
 #endif
