@@ -41,12 +41,16 @@ and across a switch:
 
 - In: `HTTPCookieStorage.shared`, the only storage Map Local writes to. The journal, the
   restore triggers, a new operation, two new state fields, a panel notice, a Swift API,
-  and `os_log` output for rules and cookies.
+  and `os_log` output for cookies. The per-request `rules` log (request item 5) is a
+  separate, later change.
 - Out: a session's own cookie storage, `WKWebsiteDataStore`, the keychain, and any other
   place a mocked sign-in can leave state. Restoring cookies does not clear the
-  mocked-session warning (`authMocked`). A clean end state for an agent is therefore
-  `mockedCookies == 0` and `mayHoldMockedSession == false`, plus whatever the app keeps
-  itself.
+  mocked-session warning. A clean end state for an agent is therefore
+  `mockedCookies == 0` and `authMocked == false` in `maplocal.state`, plus whatever the
+  app keeps itself. `authMocked` already exists: it turns true when a rule tagged `auth`
+  answers, survives a relaunch, and is cleared only by `maplocal.configuration.patch
+  {"authMocked": false}` after logging out in the app ([usage.md, Auth
+  rule](../../usage.md#auth-rule)).
 - Known limit, documented in usage.md: inside the URL protocol a session's own opt-outs
   are invisible. A session with `httpShouldSetCookies = false`, a `.never` accept policy
   or its own or an ephemeral storage still gets the mocked cookie written to the shared
@@ -275,6 +279,17 @@ Map Local off, or a discard, sets it aside or removes it.
 Added output fields keep binding version 1
 ([cli.md, Binding versions](../../cli.md#binding-versions)).
 
+### Operation `maplocal.cookies.list`
+
+- Binding `necto.device.maplocal.cookies.list`, version 1. Kind `once`, read-only.
+- Input `{}`. Output `{"entries": [{"domain", "path", "name", "layer": "active" |
+  "setAside", "launch": "current" | "earlier"}]}`: keys only, never values, and nothing
+  else from the journal.
+- It lets an agent assert that a scenario's mock set a given cookie, and see what an
+  earlier run left, without discarding anything. Requested by the Aptner trial sessions.
+- It is a separate operation rather than a field of `maplocal.state`, so the state that
+  every change broadcasts stays small and the panel's state is unchanged.
+
 ### Swift API
 
 `NectoMapLocalPlugin.restoreMockedCookies(scope:)`, static, returns the same result. Like
@@ -293,12 +308,6 @@ set-aside cookies are not in storage, so nothing applies while Map Local is off.
 
 `Logger` with subsystem `io.github.ryan-son.maplocal`:
 
-- category `rules`: a mocked request at `.info`, a request passed through at `.debug`.
-  Method, host, rule ID and outcome are public. The path is `.private`, because paths
-  carry IDs and tokens. `.debug` lines are not kept unless a stream asks for them, so
-  the cost on a request is a formatted call that the system drops. This category is
-  request item 5, not part of the cookie work; it ships in the same branch only if the
-  user keeps it here.
 - category `cookies`: each journaled write, each restore with its trigger and counts, and
   each entry left alone. Cookie names and values are `.private`.
 
@@ -345,8 +354,8 @@ On a simulator:
 - `URLProtocolTests`: a mocked `Set-Cookie` reaches the engine's jar and is journaled.
   The jar is injected into `ClientRelay`, so no test touches the shared storage.
 - `PluginOperationTests` and `ContractTests`:
-  - `cookies.restore` input checks, output and both failures;
-  - the operation in `outputs()` and the panel inputs;
+  - `cookies.restore` input checks, output and both failures; `cookies.list` output;
+  - both operations in `outputs()`, and `cookies.restore` in the panel inputs;
   - the manifest and `MapLocalOperation` agree.
 
 ### Panel
@@ -387,7 +396,7 @@ none today, so until then the log says iOS 16 was not measured.
   - a section on the notice;
   - the confirmation's new sentence.
 - `docs/cli.md`:
-  - the operation, its `scope` and failures, and the state fields;
+  - both operations, `scope` and the failures, and the state fields;
   - the Error model.
 - `docs/design.md`: this decision and its reasons:
   - compare at restore instead of watching;
@@ -397,8 +406,8 @@ none today, so until then the log says iOS 16 was not measured.
 - `docs/experience.md`: a "compare with the real server and come back" scenario (off,
   on, same cookies), and a "clean up mocked cookies" scenario (discard).
 - `docs/recipes.md`:
-  - the agent's start (`scope: earlierLaunches`) and end check (`mockedCookies == 0`,
-    `mayHoldMockedSession == false`);
+  - the agent's start (`scope: earlierLaunches`), its checks with `cookies.list`, and
+    its end check (`mockedCookies == 0`, `authMocked == false`);
   - switching rule sets before launch by writing `configuration.json` into the app
     container.
 
@@ -426,10 +435,19 @@ measurements in Section 3 are what confirm it.
 | Contract shape, ContractTests, error model, partial failure | Taken: `revision` and `mockedCookies` in the output, two message codes, memory equals disk |
 | `replace` and `force` missing from the turn-off trigger | Taken |
 | Agents cannot start clean while pre-attach mocks run | Taken without a launch argument: `scope: earlierLaunches` plus `launchID` per entry. A launch argument would be a second way to configure the engine, which was rejected for item 3 |
-| Agents cannot tell what happened | Partly taken: per-entry keys in the result and `lastCookieChange`. A separate `cookies.list` operation is left out until an agent needs it |
+| Agents cannot tell what happened | Taken: per-entry keys in the result, `lastCookieChange`, and `maplocal.cookies.list`, which the Aptner trial sessions asked for in the fit check |
 | Turn-off should return the restore result | Not taken: it changes the output of an existing write. `lastCookieChange` covers it |
 | Badge while cookies remain with Map Local off | Not taken: with restore on turn-off, that only follows a response delayed past turn-off, and the notice and the next restore cover it |
 | Restore on turn-off cannot be undone (principle 4) | Taken, decided by the user: off sets mocked cookies aside and on puts them back ([Off and on](#off-and-on)), instead of an undo that only the panel could offer |
 | Session opt-outs are invisible in the protocol | Taken as a documented limit (measured) |
 | `log stream` command and public paths | Taken |
 | Measure on iOS 16; test counts; file guards; regenerated panel | Taken |
+
+### Fit check with the Aptner app (modernization-ec)
+
+- Names: kept as they are, with no renames.
+- The clean end check names `authMocked`, the field `maplocal.state` already has, instead
+  of the internal `mayHoldMockedSession`.
+- `maplocal.cookies.list` added, so journaled keys can be read before a restore.
+- Session-level cookie opt-outs: the app has none, so the known limit does not affect it.
+- The `rules` log: not needed soon, so it ships later as its own change.
