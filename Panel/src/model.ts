@@ -57,6 +57,11 @@ export class PanelModel {
   discardCookies = async (): Promise<WriteResult> => {
     try {
       const result = await this.api.restoreCookies();
+      // A failure an earlier discard left on screen no longer holds.
+      if (this.lastFailure) {
+        this.lastFailure = undefined;
+        this.changed("write");
+      }
       return { ok: true, revision: result.revision };
     } catch (error: unknown) {
       const failure = failureFrom(error, this.known);

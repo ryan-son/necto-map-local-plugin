@@ -5779,6 +5779,19 @@ describe("mocked cookies notice", () => {
     );
   });
 
+  test("a failed discard is reported, and a later successful discard clears the report", async () => {
+    const api = new FakeAPI();
+    api.current = { ...engineState(), mockedCookies: 1 };
+    api.cookieError = new Error("journal locked");
+    const { root, model } = mount(api);
+    click($(root, '[data-field="discard-cookies"]'));
+    await flush();
+    expect(model.lastFailure?.ok).toBe(false);
+    click($(root, '[data-field="discard-cookies"]'));
+    await flush();
+    expect(model.lastFailure).toBeUndefined();
+  });
+
   test("shows nothing when no mocked cookie is journaled, or the app is older", () => {
     const { root } = mount(new FakeAPI());
     expect(root.querySelector('[data-notice="mocked-cookies"]')).toBeNull();
