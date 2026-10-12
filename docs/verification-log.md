@@ -89,7 +89,7 @@ cookie and sends its request at launch, because `idb` could not tap with this Xc
 | `cookies.restore`, `simctl terminate` at once, relaunch | pass | 0ea31ac | Relaunched with `R` and an empty `cookies.list` |
 | An `HttpOnly` mock over a plain real cookie: off, on, discard | pass | 0ea31ac | `R` → `M` (HttpOnly) → off `R` → on `M` → discard `R`. Before 195853c a restore set `R` without deleting `M` first, and storage refused it, so `M` stayed |
 | A mock without `HttpOnly` over a real `HttpOnly` cookie | storage refuses it | 96e2a4b | `R` stays and nothing is journaled; usage.md says to add `HttpOnly` to the mock |
-| `cookies` log lines | pass | 0ea31ac | `log show` lists each journaled write and each change with its trigger and counts. The simulator showed `.private` names unredacted; redaction on a device not verified |
+| `cookies` log lines | pass | 96e2a4b | `log show` lists each journaled write and each change with its trigger and counts. The simulator showed `.private` names unredacted; redaction on a device not verified |
 | recipes.md "Run a QA scenario from an agent", followed as written on a fresh install | pass | 3b0f036 | The copied `configuration.json` applied from the first, pre-attach request; `earlierLaunches` kept that launch's cookie; the end check read `mockedCookies` 0 and `authMocked` false. `simctl terminate` exits nonzero when the app is not running, so the recipe adds `|| true` |
 | iOS 16 | not verified | | No iOS 16 simulator runtime on this Mac |
 
