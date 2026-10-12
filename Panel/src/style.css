@@ -135,6 +135,10 @@ select {
 
 .ml-add-host-hint { color: var(--necto-text-secondary); }
 
+/* Stands in for the allowed hosts only in a narrow panel (see the narrow layout below). */
+.ml-hosts-toggle { display: none; }
+.ml-hosts-toggle::after { content: "▾"; margin-left: var(--necto-space-1); }
+
 /* Takes only the room left over, so it never widens or wraps the first row. */
 .ml-host-hint {
   flex: 1 1 0;
@@ -759,6 +763,37 @@ select {
  * selected (detail closed) the list takes all the space.
  */
 @container ml-panel (max-width: 639px) {
+  /*
+   * The allowed hosts fold behind one button and open over the content, so the header keeps
+   * its two rows and the first row fits without scrolling.
+   */
+  .ml-head { position: relative; }
+  .ml-hosts-toggle { display: inline-flex; }
+  .ml-host-group[data-group="allowed-hosts"] { display: none; }
+
+  .ml-head[data-hosts-open] .ml-host-group[data-group="allowed-hosts"] {
+    display: flex;
+    flex-wrap: wrap;
+    position: absolute;
+    top: calc(100% + var(--necto-space-1));
+    left: var(--necto-space-3);
+    right: var(--necto-space-3);
+    z-index: 10;
+    max-height: 50vh;
+    overflow-y: auto;
+    padding: var(--necto-space-2);
+    border: 1px solid var(--necto-border);
+    border-radius: var(--necto-radius-control);
+    background: var(--necto-surface);
+  }
+
+  /* With the room of the panel, the hint for an empty list reads in full. */
+  .ml-head[data-hosts-open] .ml-host-hint {
+    flex-basis: 100%;
+    contain: none;
+    white-space: normal;
+  }
+
   .ml-split {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, var(--ml-stack-list, 2fr)) minmax(0, 3fr);

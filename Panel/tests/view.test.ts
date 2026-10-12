@@ -5766,3 +5766,64 @@ describe("every write the panel sends ends the undo (D8)", () => {
     expect(m.root.querySelector('[data-notice="undo"]')).toBeNull();
   });
 });
+
+describe("a narrow panel folds the allowed hosts behind one button", () => {
+  const toggle = (root: ParentNode) => field(root, "hosts-toggle");
+  const head = (root: ParentNode) => $(root, ".ml-head");
+  const isOpen = (root: ParentNode) => head(root).hasAttribute("data-hosts-open");
+
+  test("the button says how many hosts are allowed and names the group it opens", () => {
+    const api = new FakeAPI();
+    api.current = engineState({ ...configuration(), allowedHosts: ["a.invalid", "b.invalid"] });
+    const { root } = mount(api);
+    expect(toggle(root).textContent).toBe("허용 호스트 2");
+    expect(toggle(root).getAttribute("aria-expanded")).toBe("false");
+    const group = $(root, '[data-group="allowed-hosts"]');
+    expect(toggle(root).getAttribute("aria-controls")).toBe(group.id);
+    expect(isOpen(root)).toBe(false);
+  });
+
+  test("opening it puts focus in the host field, and closing it returns focus to the button", () => {
+    const { root } = mount();
+    click(toggle(root));
+    expect(isOpen(root)).toBe(true);
+    expect(toggle(root).getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(field(root, "add-host"));
+    click(toggle(root));
+    expect(isOpen(root)).toBe(false);
+    expect(document.activeElement).toBe(toggle(root));
+  });
+
+  test("it stays open while hosts are added, and a press outside it closes it", async () => {
+    const api = new FakeAPI();
+    api.current = { ...engineState(), observedHosts: ["dev.invalid"] };
+    const { root, model } = mount(api);
+    click(toggle(root));
+    click($(root, '[data-add-host="dev.invalid"]'));
+    await model.idle();
+    expect(isOpen(root)).toBe(true);
+    $(root, '[data-group="allowed-hosts"]').dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    expect(isOpen(root)).toBe(true);
+    $(root, ".necto-tabs").dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    expect(isOpen(root)).toBe(false);
+  });
+
+  test("Escape inside it closes it and goes back to the button, without reaching the rules", () => {
+    const { root } = mount();
+    click(toggle(root));
+    const esc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    field(root, "add-host").dispatchEvent(esc);
+    expect(isOpen(root)).toBe(false);
+    expect(esc.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(toggle(root));
+  });
+
+  test("below 640 px the button stands in for the hosts, which open over the content as a panel; wider, the button is hidden", () => {
+    expect(css).toMatch(/\.ml-hosts-toggle\s*\{[^}]*display:\s*none/);
+    const narrow = css.slice(css.indexOf("@container ml-panel (max-width: 639px)"));
+    expect(narrow).toMatch(/\.ml-hosts-toggle\s*\{[^}]*display:\s*inline-flex/);
+    expect(narrow).toMatch(/\.ml-host-group\[data-group="allowed-hosts"\]\s*\{[^}]*display:\s*none/);
+    expect(narrow).toMatch(/\.ml-head\[data-hosts-open\] \.ml-host-group\[data-group="allowed-hosts"\]\s*\{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap[^}]*position:\s*absolute/);
+    expect(narrow).toMatch(/\.ml-head\s*\{[^}]*position:\s*relative/);
+  });
+});
