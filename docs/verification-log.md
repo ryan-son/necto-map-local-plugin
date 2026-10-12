@@ -58,6 +58,39 @@ hesitated.>
 <Each check above that was not run, and why.>
 ```
 
+## Unreleased: mocked cookie journal — 2026-10-12
+
+Build: 96e2a4b (branch `feature/mocked-cookie-journal`) · Necto 0.2.0 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
+Targets: iOS simulator (iPhone 18 Pro, iOS 27.0) · device: none
+
+Only the mocked cookie work was checked here; the rows of the template that it does not
+touch were not rerun. The app was a throwaway copy of QuickStart that logs the probe
+cookie and sends its request at launch, because `idb` could not tap with this Xcode
+(SimulatorKit missing). Calls went through `necto-cli` in the Necto app bundle.
+
+### Automated
+
+| Check | Result |
+| --- | --- |
+| `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 |
+| `swift test` | 88 + 125 tests (was 86 + 74) |
+| `cd Panel && npx vitest run` | 1122 tests (was 1115) |
+| Release workflow on GitHub (tag check, CI, assets) | not run |
+
+### In Necto
+
+| Check | Result | Build | Notes |
+| --- | --- | --- | --- |
+| A mocked `Set-Cookie` over a real cookie makes `mockedCookies` 1 and `cookies.list` names it | pass | 96e2a4b | Real `R` set at launch, rule mocks `GET httpbin.org/json` with `Max-Age=3600` |
+| `cookies.restore` from `necto-cli` brings the real cookie back | pass | 96e2a4b | `restored: 1`; the stored cookie is `R` with its original expiry |
+| Turning Map Local off sets the mock aside, on brings it back | pass | 96e2a4b | `setAsideCookies` 1 and `R` stored, then `reapplied` 1 and `M` stored |
+| Relaunching with Map Local off sets cookies aside | pass after a fix | 96e2a4b | At 2b6fde8 it failed: `simctl terminate` lost the unsaved mocked write, and the launch check called the entry rewritten (`skipped`). Fixed in 96e2a4b; now `restored` 1, `setAsideCookies` 1 |
+| After that relaunch, turning on reapplies the mock | pass | 96e2a4b | `reapplied` 1, so the set-aside record still equals storage after a relaunch (expiry precision) |
+| `cookies.restore`, `simctl terminate` at once, relaunch | pass | 96e2a4b | Relaunched with `R` and an empty `cookies.list` |
+| A mock without `HttpOnly` over a real `HttpOnly` cookie | storage refuses it | 96e2a4b | `R` stays and nothing is journaled; usage.md says to add `HttpOnly` to the mock |
+| `cookies` log lines | pass | 96e2a4b | `log show` lists each journaled write and each change with its trigger and counts. The simulator showed `.private` names unredacted; redaction on a device not verified |
+| iOS 16 | not verified | | No iOS 16 simulator runtime on this Mac |
+
 ## 0.1.0 — not tagged yet
 
 Build: 7133677 (branch `feature/traffic-tab`) for the automated checks. The checks in Necto
