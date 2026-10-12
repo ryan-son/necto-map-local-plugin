@@ -66,8 +66,8 @@ public struct CookieSaveFailure: Error, Sendable {
 /// Writes mocked cookies, journals them, and brings real ones back.
 ///
 /// One lock covers reading a key, writing it, journaling it and restoring it, so a
-/// restore can never fall between a write's read and its store. It is never held together
-/// with the engine's state lock.
+/// restore can never fall between a write's read and its store. `sync` reads the engine's
+/// switch while holding it; the engine never takes this lock while holding its own.
 final class CookieKeeper: Sendable {
     private struct Inner {
         var journal: CookieJournal

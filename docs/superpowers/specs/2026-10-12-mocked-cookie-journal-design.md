@@ -451,3 +451,20 @@ measurements in Section 3 are what confirm it.
 - `maplocal.cookies.list` added, so journaled keys can be read before a restore.
 - Session-level cookie opt-outs: the app has none, so the known limit does not affect it.
 - The `rules` log: not needed soon, so it ships later as its own change.
+
+## Changed during implementation
+
+The tables above are the design as approved. Implementation and its final review changed
+these points; `docs/design.md` holds the decisions in force.
+
+- An entry carries `inFlight` while the mock's write is pending, and a restore treats an
+  in-flight entry whose key changed as the mock's write.
+- Restore treats a key that again holds exactly `before` as already restored: a kill can
+  lose the mock's unsaved write (measured on iOS 27).
+- Restoring and reapplying delete the key first, because storage refuses to replace an
+  `HttpOnly` cookie with one that is not (measured).
+- A restored mocked deletion is not put on the pending list, and an entry dropped by "on"
+  leaves the pending list.
+- A mock that writes the same value again in a new launch makes the key that launch's.
+- `lastCookieChange` is present from launch, not null, unless the journal could not be
+  read or saved; its shape is declared in full in the manifest.

@@ -228,6 +228,17 @@ badge's sheet asks the same way, with the same words (`Effects.sessionAtRisk` mi
   Local is off (principle 10).
 - A launch with Map Local off sets cookies aside; a launch with it on keeps them, because
   rules apply with or without Necto.
+- Restoring or reapplying deletes the key before storing: measured on macOS and iOS 27,
+  storage refuses to replace an `HttpOnly` cookie with one that is not.
+- An entry is saved *in flight* before the mock's write and cleared once the write is read
+  back, so a crash in between still lets a restore bring the real cookie back.
+- Restored entries are checked again at the next launch, because `HTTPCookieStorage`
+  saves lazily and a kill can lose the restore (measured). A restored mocked *deletion* is
+  not: an empty key after a kill looks the same as a real logout, and reviving a
+  logged-out cookie is worse than losing one.
+- The keeper's lock may take the engine's state lock, to read the switch while moving
+  cookies, so racing on and off writes end with cookies matching the last one. The state
+  lock never takes the keeper's.
 
 ## Keeping it out of release builds
 
