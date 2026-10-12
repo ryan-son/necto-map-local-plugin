@@ -29,8 +29,13 @@ After a restore:
 3. a cookie that something else rewrote or deleted after the mock keeps that state;
 4. no cookie that Map Local did not write is deleted or changed, even one with the same
    name on another domain or path;
-5. a journal survives a relaunch, and a launch with Map Local off cleans it up before the
-   first request made after the plugin is created.
+5. a journal survives a relaunch, and a launch with Map Local off sets mocked cookies
+   aside before the first request made after the plugin is created;
+
+and across a switch:
+
+6. turning Map Local off and on again, with nothing else touching those cookies in
+   between, leaves the same mocked cookies in storage as before it was turned off.
 
 ## Scope
 
@@ -108,6 +113,8 @@ One entry per key:
 | `written` | What the last mocked write left in storage, read back after the write: a record, or *deleted* when the mock removed the cookie |
 | `launchID` | The launch of the last mocked write |
 | `beforeLaunchID` | The launch in which `before` was read |
+| `state` | *active* (the mock's cookie is in storage) or *set aside* (Map Local is off, and the real value is back) |
+| `restoredTo` | For a set-aside entry, what storage held right after it was set aside: `before`, or nothing |
 
 ### Writing
 
@@ -152,6 +159,30 @@ Restored entries move to a short *pending* list that the next launch checks agai
 kill lost the restore before `HTTPCookieStorage` flushed it, the stored cookie equals
 `written` again and is restored again. The pending list is then cleared.
 
+### Off and on
+
+Map Local treats its cookies as part of the layer it puts over the app: off takes them
+away, and on puts them back.
+
+- **Off** runs the restore above on every active entry. An entry that was restored, or
+  whose mock cookie was deleted by a mock, becomes *set aside*, with `restoredTo`. An
+  entry left alone because something else changed it is dropped, and so is one whose
+  mock cookie expired or was a session cookie of an earlier launch: neither can come
+  back.
+- **On** looks at each set-aside entry. If storage under the key still equals
+  `restoredTo`, and `written` has not expired and is not a session cookie of an earlier
+  launch, it writes `written` back (or deletes the cookie, for a *deleted* entry) with
+  `setCookie(_:)` and makes the entry active again. Otherwise something real changed the
+  cookie while Map Local was off, or the mock cookie is no longer valid, and the entry is
+  dropped, leaving the real value.
+- **Discard**, the explicit restore, restores every active entry and drops every entry,
+  set aside or not. The journal is then empty. This is how a person who is done with
+  mocks, or an agent at the end of a scenario, cleans up for good.
+
+So turning off and on again needs neither an undo nor a question (experience.md
+principle 4), and while Map Local is off the app's requests carry only real cookies
+(principle 10).
+
 ### Launch
 
 The engine's `init` reconciles the journal on every launch, whether Map Local is on or
@@ -161,8 +192,9 @@ off:
 - it resolves each entry whose mock cookie is gone by itself, using the second row of
   the table, so a session cookie that died with the last launch no longer counts.
 
-If Map Local is off, it then restores everything. An unreadable, corrupt or too-new
-configuration loads as `.empty`, whose `enabled` is true, so no full restore runs then.
+If Map Local is off, it then sets every active entry aside, as turning it off does. If it
+is on, it puts set-aside entries back, as turning it on does. An unreadable, corrupt or
+too-new configuration loads as `.empty`, whose `enabled` is true.
 
 ### Storage
 
@@ -183,37 +215,39 @@ configuration loads as `.empty`, whose `enabled` is true, so no full restore run
 
 ### Triggers
 
-All of them call `restoreMockedCookies(scope:)`.
-
-| Trigger | Where | Note |
+| Trigger | Where | Does |
 |---|---|---|
-| Explicit | The CLI operation, the panel button, the Swift API | Works whether Map Local is on or off, and even when the configuration is read-only |
-| Map Local turned off | Any engine write that moves `enabled` from true to false: `patch`, `replace` with or without `force`, the badge | All take the one private `apply`. A write that keeps `enabled` true does not restore, even when it removes a rule or a host |
-| Launch | The engine's `init`, as in [Launch](#launch) | The full restore runs only with Map Local off. With it on, rules apply with or without Necto |
+| Explicit | The CLI operation, the panel button, the Swift API | Discard. Works whether Map Local is on or off, and even when the configuration is read-only |
+| Map Local turned off | Any engine write that moves `enabled` from true to false: `patch`, `replace` with or without `force`, the badge | Off. All take the one private `apply`. A write that keeps `enabled` true changes no cookie, even when it removes a rule or a host |
+| Map Local turned on | Any engine write that moves `enabled` from false to true | On |
+| Launch | The engine's `init`, as in [Launch](#launch) | Off or on, matching the loaded switch |
 
 A restore triggered by a configuration write runs after that write has saved and
 broadcast, under the journal lock and never under the state lock. Its failure never fails
 the write. It becomes an issue in state and a log line.
 
 The existing confirmation before turning Map Local off while a mocked session may remain
-also says that mocked cookies will be restored.
+also says that mocked cookies are set aside until Map Local is on again.
 
 A response delayed past the moment Map Local was turned off still writes its cookie, and
-that cookie is journaled. The panel notice shows it, and the next restore removes it.
+that cookie is journaled as active. The panel notice shows it, and the next launch with
+Map Local off, or a discard, sets it aside or removes it.
 
 ### Operation `maplocal.cookies.restore`
 
 - Binding `necto.device.maplocal.cookies.restore`, version 1. Kind `once`. It is handled
   before `change(for:)`, because it does not change the configuration.
 - Input: optional `scope`, either `"all"` (the default) or `"earlierLaunches"`. The latter
-  restores only entries whose `launchID` is not the current launch. An agent uses it right
+  discards only entries whose `launchID` is not the current launch. Entries put back on
+  at launch keep their original `launchID`, so they count as earlier. An agent uses it right
   after Necto attaches to clear what earlier runs left, without touching what this
   launch's pre-attach mocks wrote. No `baseRevision`: the operation writes no
   configuration, and calling it twice leaves the same storage.
 - Output:
 
   ```json
-  {"ok": true, "revision": 7, "mockedCookies": 0, "deleted": 1, "restored": 1, "skipped": 0,
+  {"ok": true, "revision": 7, "mockedCookies": 0, "setAsideCookies": 0,
+   "deleted": 1, "restored": 1, "skipped": 0,
    "entries": [{"domain": ".example.com", "path": "/", "name": "sid", "action": "restored"}]}
   ```
 
@@ -230,11 +264,13 @@ that cookie is journaled. The panel notice shows it, and the next restore remove
 
 `maplocal.state` and `maplocal.state.observe` gain:
 
-- `mockedCookies`: the number of journal entries. Entries on the pending list do not
-  count, so a successful restore reads 0 at once;
-- `lastCookieRestore`: `{"trigger": "explicit" | "turnedOff" | "launch", "date", "deleted",
-  "restored", "skipped"}`, or null. It tells an agent that attaches late whether the
-  launch cleanup ran.
+- `mockedCookies`: the number of active entries, whose mock cookies are in storage now.
+  Entries on the pending list do not count, so a successful restore reads 0 at once;
+- `setAsideCookies`: the number of set-aside entries, which come back when Map Local is
+  on;
+- `lastCookieChange`: `{"trigger": "explicit" | "turnedOff" | "turnedOn" | "launch",
+  "date", "deleted", "restored", "skipped", "reapplied", "dropped"}`, or null. It tells an
+  agent that attaches late what the launch did.
 
 Added output fields keep binding version 1
 ([cli.md, Binding versions](../../cli.md#binding-versions)).
@@ -246,10 +282,12 @@ every source file it sits inside `#if MAP_LOCAL_ENABLED`.
 
 ### Panel
 
-While `mockedCookies > 0`, the header shows "N mocked cookies remain" with a "Restore
-cookies" button, whether Map Local is on or off. It sits in the header's fixed rows, so
+While `mockedCookies > 0` the header shows "N mocked cookies in use", and while
+`setAsideCookies > 0` it shows "N mocked cookies set aside; they return when Map Local is
+on". Either way it carries a "Discard mocked cookies" button. It sits in the header's fixed rows, so
 it never pushes the lists down (experience.md principle 5). The button calls
-`maplocal.cookies.restore`. No cookie name or value is shown. The badge does not change.
+`maplocal.cookies.restore`. No cookie name or value is shown. The badge does not change:
+set-aside cookies are not in storage, so nothing applies while Map Local is off.
 
 ### Logs
 
@@ -278,6 +316,9 @@ On a simulator:
   - deleted by a mock (`Max-Age=0`), then restored;
   - a mocked cookie that expired, then restored;
   - a session cookie from an earlier launch;
+  - off then on with nothing in between returns the same cookies;
+  - a real change while off, or a mock cookie that expired while off, drops the entry;
+  - a discard drops set-aside entries;
   - rewritten or deleted by something else;
   - a stale `before` replaced by a newer real value;
   - an expired or earlier-launch session `before` not restored;
@@ -288,8 +329,9 @@ On a simulator:
 - `CookieRecord` round trip through `HTTPCookie(properties:)`, and equality at whole
   seconds.
 - `EngineTests`:
-  - every write that moves `enabled` to false restores (`patch`, `replace`, `force`);
-  - a write that keeps `enabled` true does not;
+  - every write that moves `enabled` to false sets aside, and to true puts back
+    (`patch`, `replace`, `force`);
+  - a write that keeps `enabled` true changes no cookie;
   - a failing restore does not fail the write;
   - the launch reconcile, and the full restore when off;
   - a corrupt configuration launches as on;
@@ -327,8 +369,9 @@ With QuickStart on a simulator, record each result in `docs/verification-log.md`
 
 1. a mocked `Set-Cookie` makes `mockedCookies` 1;
 2. `cookies.restore` from `necto-cli` deletes the cookie;
-3. turning Map Local off restores the cookie;
-4. relaunching with Map Local off cleans up;
+3. turning Map Local off restores the real cookie, and turning it on brings the mocked
+   one back;
+4. relaunching with Map Local off sets the cookies aside;
 5. `simctl terminate` right after a restore, then a relaunch: the pending check restores
    again if the kill undid it;
 6. expiry precision after a relaunch;
@@ -351,7 +394,8 @@ none today, so until then the log says iOS 16 was not measured.
   - the engine owns the write;
   - a full restore at launch only when off;
   - the error model entry.
-- `docs/experience.md`: a "clean up mocked cookies" scenario.
+- `docs/experience.md`: a "compare with the real server and come back" scenario (off,
+  on, same cookies), and a "clean up mocked cookies" scenario (discard).
 - `docs/recipes.md`:
   - the agent's start (`scope: earlierLaunches`) and end check (`mockedCookies == 0`,
     `mayHoldMockedSession == false`);
@@ -382,10 +426,10 @@ measurements in Section 3 are what confirm it.
 | Contract shape, ContractTests, error model, partial failure | Taken: `revision` and `mockedCookies` in the output, two message codes, memory equals disk |
 | `replace` and `force` missing from the turn-off trigger | Taken |
 | Agents cannot start clean while pre-attach mocks run | Taken without a launch argument: `scope: earlierLaunches` plus `launchID` per entry. A launch argument would be a second way to configure the engine, which was rejected for item 3 |
-| Agents cannot tell what happened | Partly taken: per-entry keys in the result and `lastCookieRestore`. A separate `cookies.list` operation is left out until an agent needs it |
-| Turn-off should return the restore result | Not taken: it changes the output of an existing write. `lastCookieRestore` covers it |
+| Agents cannot tell what happened | Partly taken: per-entry keys in the result and `lastCookieChange`. A separate `cookies.list` operation is left out until an agent needs it |
+| Turn-off should return the restore result | Not taken: it changes the output of an existing write. `lastCookieChange` covers it |
 | Badge while cookies remain with Map Local off | Not taken: with restore on turn-off, that only follows a response delayed past turn-off, and the notice and the next restore cover it |
-| Restore on turn-off cannot be undone (principle 4) | Open: the user chose automatic restore. Whether to add an "Undo" that writes `written` back is for the user to decide |
+| Restore on turn-off cannot be undone (principle 4) | Taken, decided by the user: off sets mocked cookies aside and on puts them back ([Off and on](#off-and-on)), instead of an undo that only the panel could offer |
 | Session opt-outs are invisible in the protocol | Taken as a documented limit (measured) |
 | `log stream` command and public paths | Taken |
 | Measure on iOS 16; test counts; file guards; regenerated panel | Taken |
