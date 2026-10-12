@@ -5757,3 +5757,43 @@ describe("every write the panel sends ends the undo (D8)", () => {
     expect(m.root.querySelector('[data-notice="undo"]')).toBeNull();
   });
 });
+
+describe("mocked cookies notice", () => {
+  test("shows the count in use with a discard button that calls cookies.restore", async () => {
+    const api = new FakeAPI();
+    api.current = { ...engineState(), mockedCookies: 2, setAsideCookies: 0 };
+    const { root, model } = mount(api);
+    const notice = $(root, '[data-notice="mocked-cookies"]');
+    expect(notice.textContent).toContain("목업 쿠키 2개 사용 중");
+    click(notice.querySelector("button"));
+    await model.idle();
+    expect(api.calls).toContain("maplocal.cookies.restore");
+  });
+
+  test("says set-aside cookies return when Map Local is on", () => {
+    const api = new FakeAPI();
+    api.current = { ...engineState(), mockedCookies: 0, setAsideCookies: 1 };
+    const { root } = mount(api);
+    expect($(root, '[data-notice="mocked-cookies"]').textContent).toContain(
+      "목업 쿠키 1개를 보류했습니다. Map Local을 켜면 돌아옵니다",
+    );
+  });
+
+  test("shows nothing when no mocked cookie is journaled, or the app is older", () => {
+    const { root } = mount(new FakeAPI());
+    expect(root.querySelector('[data-notice="mocked-cookies"]')).toBeNull();
+  });
+
+  test("adds the cookie sentence to the turn-off confirmation when cookies are in use", () => {
+    const auth = { ...rule("login"), tags: ["auth"] };
+    const api = new FakeAPI();
+    api.current = {
+      ...engineState({ ...configuration([auth]), allowedHosts: ["maplocal.invalid"] }),
+      authMocked: true,
+      mockedCookies: 1,
+    };
+    const { root } = mount(api);
+    click($(root, '[data-field="map-local-enabled"]'));
+    expect($(root, ".necto-dialog").textContent).toContain("목업 쿠키는 Map Local을 다시 켤 때까지 보류됩니다.");
+  });
+});

@@ -52,6 +52,19 @@ export class PanelModel {
     this.send("maplocal.configuration.patch", { allowedHosts });
   setUnmatched = (unmatched: Unmatched) => this.send("maplocal.configuration.patch", { unmatched });
   acknowledgeSession = () => this.send("maplocal.configuration.patch", { authMocked: false });
+  /// Discards mocked cookies. Not a configuration write, so it skips the writer and its
+  /// baseRevision; the state that follows carries the new counts.
+  discardCookies = async (): Promise<WriteResult> => {
+    try {
+      const result = await this.api.restoreCookies();
+      return { ok: true, revision: result.revision };
+    } catch (error: unknown) {
+      const failure = failureFrom(error, this.known);
+      this.lastFailure = failure;
+      this.changed("write");
+      return failure;
+    }
+  };
   reorder = (order: string[]) => this.send("maplocal.configuration.patch", { order });
   upsertRule = (rule: Rule) => this.send("maplocal.rule.upsert", { rule });
   deleteRule = (id: string) => this.send("maplocal.rule.delete", { id });
