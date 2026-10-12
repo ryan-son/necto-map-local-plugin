@@ -257,6 +257,96 @@ final class CookieKeeper: Sendable {
         }
     }
 
+    private func setAside(_ journal: inout CookieJournal) -> [CookieEntryResult] {
+        var results: [CookieEntryResult] = []
+        var kept: [CookieEntry] = []
+        for var entry in journal.entries {
+            guard entry.layer == .active else {
+                kept.append(entry)
+                continue
+            }
+            let action = restore(entry)
+            results.append(CookieEntryResult(key: entry.key, action: action))
+            guard action == .deleted || action == .restored, !goneByItself(entry) else { continue }
+            journal.pending.append(entry)
+            entry.layer = .setAside
+            entry.restoredTo = stored(entry.key)
+            kept.append(entry)
+        }
+        journal.entries = kept
+        return results
+    }
+
+    private func putBack(_ journal: inout CookieJournal) -> [CookieEntryResult] {
+        var results: [CookieEntryResult] = []
+        var kept: [CookieEntry] = []
+        for var entry in journal.entries {
+            guard entry.layer == .setAside else {
+                kept.append(entry)
+                continue
+            }
+            let unchanged = stored(entry.key) == entry.restoredTo
+            guard unchanged, !goneByItself(entry) else {
+                results.append(CookieEntryResult(key: entry.key, action: .dropped))
+                continue
+            }
+            switch entry.written {
+            case let .stored(record):
+                guard let cookie = record.cookie else {
+                    results.append(CookieEntryResult(key: entry.key, action: .dropped))
+                    continue
+                }
+                jar.set(cookie)
+            case .deleted:
+                jar.delete(entry.key)
+            }
+            journal.pending.removeAll { $0.key == entry.key }
+            entry.layer = .active
+            entry.restoredTo = nil
+            kept.append(entry)
+            results.append(CookieEntryResult(key: entry.key, action: .reapplied))
+        }
+        journal.entries = kept
+        return results
+    }
+
+    func setAside(trigger: CookieTrigger) throws -> CookieChange {
+        try change(trigger) { setAside(&$0) }
+    }
+
+    func putBack(trigger: CookieTrigger) throws -> CookieChange {
+        try change(trigger) { putBack(&$0) }
+    }
+
+    /// Matches the cookies to the switch: off sets aside, on puts back. Idempotent, so the
+    /// engine can call it after any write that may have flipped `enabled`.
+    func sync(enabled: Bool, trigger: CookieTrigger) throws -> CookieChange {
+        enabled ? try putBack(trigger: trigger) : try setAside(trigger: trigger)
+    }
+
+    /// Runs once per launch, before the first request after the plugin is created.
+    func reconcileAtLaunch(enabled: Bool) throws -> CookieChange {
+        try change(.launch) { journal in
+            var results: [CookieEntryResult] = []
+            // Restores a kill may have lost, unless the key is in use by a mock again.
+            let active = Set(journal.entries.filter { $0.layer == .active }.map(\.key))
+            for entry in journal.pending where !active.contains(entry.key) && entry.written.matches(stored(entry.key)) {
+                putBefore(entry)
+                results.append(CookieEntryResult(key: entry.key, action: .restored))
+            }
+            journal.pending = []
+            // Mock cookies that went away by themselves no longer count.
+            journal.entries = journal.entries.filter { entry in
+                guard entry.layer == .active, stored(entry.key) == nil, goneByItself(entry) else { return true }
+                putBefore(entry)
+                results.append(CookieEntryResult(key: entry.key, action: .restored))
+                return false
+            }
+            results += enabled ? putBack(&journal) : setAside(&journal)
+            return results
+        }
+    }
+
     private static func put(_ entry: CookieEntry, at index: Int?, in journal: inout CookieJournal) {
         if let index { journal.entries[index] = entry } else { journal.entries.append(entry) }
     }

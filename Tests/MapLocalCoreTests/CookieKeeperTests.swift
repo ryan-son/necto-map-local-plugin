@@ -281,5 +281,135 @@ struct CookieKeeperTests {
         let keeper = Fixture(journal: .unreadable("locked")).keeper()
         #expect(throws: MapLocalMessage.self) { try keeper.discard(scope: .all) }
     }
+
+    @Test("off then on with nothing in between returns the same mocked cookie")
+    func offOnRoundTrip() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.setAside(trigger: .turnedOff)
+        #expect(f.value("sid") == "R")
+        #expect(keeper.counts == (0, 1))
+        let change = try keeper.putBack(trigger: .turnedOn)
+        #expect(f.value("sid") == "M")
+        #expect(keeper.counts == (1, 0))
+        #expect(change.count(.reapplied) == 1)
+    }
+
+    @Test("a real change while off drops the set-aside entry and keeps the real value")
+    func putBackDropsWhenRealChangedWhileOff() throws {
+        let f = Fixture()
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.setAside(trigger: .turnedOff)
+        f.jar.set(Self.parse("sid=REAL; Path=/")[0])
+        let change = try keeper.putBack(trigger: .turnedOn)
+        #expect(f.value("sid") == "REAL")
+        #expect(change.count(.dropped) == 1)
+        #expect(keeper.journal.entries.isEmpty)
+    }
+
+    @Test("a mocked cookie that expired while off is not put back")
+    func putBackDropsExpired() throws {
+        let f = Fixture()
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/; Max-Age=60"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.setAside(trigger: .turnedOff)
+        f.now.advance(120)
+        _ = try keeper.putBack(trigger: .turnedOn)
+        #expect(f.value("sid") == nil)
+        #expect(keeper.journal.entries.isEmpty)
+    }
+
+    @Test("a set-aside mocked deletion deletes again when turned on")
+    func putBackReappliesDeletion() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=; Path=/; Max-Age=0"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.setAside(trigger: .turnedOff)
+        #expect(f.value("sid") == "R")
+        _ = try keeper.putBack(trigger: .turnedOn)
+        #expect(f.value("sid") == nil)
+    }
+
+    @Test("a discard drops set-aside entries without touching storage")
+    func discardDropsSetAside() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/")[0])
+        let keeper = f.keeper()
+        keeper.write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        _ = try keeper.setAside(trigger: .turnedOff)
+        let change = try keeper.discard(scope: .all)
+        #expect(f.value("sid") == "R")
+        #expect(change.count(.dropped) == 1)
+        #expect(keeper.journal.entries.isEmpty)
+    }
+
+    @Test("a launch with Map Local off sets active entries aside")
+    func launchOffSetsAside() throws {
+        let f = Fixture()
+        f.keeper(launch: "L1").write(Self.parse("sid=M; Path=/; Max-Age=3600"), for: Self.url, mainDocumentURL: nil)
+        let keeper = f.keeper(launch: "L2")
+        _ = try keeper.reconcileAtLaunch(enabled: false)
+        #expect(f.value("sid") == nil)
+        #expect(keeper.counts == (0, 1))
+    }
+
+    @Test("a launch with Map Local on puts set-aside entries back")
+    func launchOnPutsBack() throws {
+        let f = Fixture()
+        let first = f.keeper(launch: "L1")
+        first.write(Self.parse("sid=M; Path=/; Max-Age=3600"), for: Self.url, mainDocumentURL: nil)
+        _ = try first.setAside(trigger: .turnedOff)
+        let keeper = f.keeper(launch: "L2")
+        _ = try keeper.reconcileAtLaunch(enabled: true)
+        #expect(f.value("sid") == "M")
+        #expect(keeper.counts == (1, 0))
+    }
+
+    @Test("a mocked session cookie gone with the last launch brings the real cookie back at launch")
+    func launchResolvesDeadSessionCookie() throws {
+        let f = Fixture()
+        f.jar.set(Self.parse("sid=R; Path=/; Max-Age=3600")[0])
+        f.keeper(launch: "L1").write(Self.parse("sid=M; Path=/"), for: Self.url, mainDocumentURL: nil)
+        f.jar.delete(CookieKey(domain: "www.example.com", path: "/", name: "sid")) // the session ended
+        let keeper = f.keeper(launch: "L2")
+        _ = try keeper.reconcileAtLaunch(enabled: true)
+        #expect(f.value("sid") == "R")
+        #expect(keeper.journal.entries.isEmpty)
+    }
+
+    @Test("the pending check restores again when a kill undid a restore")
+    func pendingRestoresAgain() throws {
+        let f = Fixture()
+        let first = f.keeper(launch: "L1")
+        first.write(Self.parse("sid=M; Path=/; Max-Age=3600"), for: Self.url, mainDocumentURL: nil)
+        let entry = try #require(first.journal.entries.first)
+        _ = try first.discard(scope: .all)
+        // A kill lost the delete before storage saved it.
+        f.jar.set(try #require(Self.record(entry.written)?.cookie))
+        let keeper = f.keeper(launch: "L2")
+        _ = try keeper.reconcileAtLaunch(enabled: true)
+        #expect(f.value("sid") == nil)
+        #expect(keeper.journal.pending.isEmpty)
+    }
+
+    @Test("the pending check leaves a key that was put back")
+    func pendingCheckSkipsKeysPutBack() throws {
+        let f = Fixture()
+        let first = f.keeper(launch: "L1")
+        first.write(Self.parse("sid=M; Path=/; Max-Age=3600"), for: Self.url, mainDocumentURL: nil)
+        _ = try first.setAside(trigger: .turnedOff)
+        _ = try first.putBack(trigger: .turnedOn)
+        let keeper = f.keeper(launch: "L2")
+        _ = try keeper.reconcileAtLaunch(enabled: true)
+        #expect(f.value("sid") == "M")
+    }
+
+    static func record(_ write: CookieWrite) -> CookieRecord? {
+        if case let .stored(record) = write { record } else { nil }
+    }
 }
 #endif
