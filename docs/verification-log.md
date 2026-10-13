@@ -68,10 +68,13 @@ touch were not rerun. The app was a throwaway copy of QuickStart that logs the p
 cookie and sends its request at launch, because `idb` could not tap with this Xcode
 (SimulatorKit missing). Calls went through `necto-cli` in the Necto app bundle.
 
-The commits named below are on `feature/mocked-cookie-journal`, which sat on a branch that
-lowers the deployment target to iOS 16. The work was restacked onto `main` as
-`feature/cookie-journal`; apart from that target its code is the same as at 237f162 (8de8ba8 with `main` merged in)
-(`git diff` shows no other change), so these results stand for it.
+The commits named below are on `feature/mocked-cookie-journal` (kept as the tag
+`archive/mocked-cookie-journal`), which sat on a branch that lowers the deployment target to
+iOS 16. The work was restacked onto `main` as `feature/cookie-journal`. At its docs commit
+the code matched that branch apart from the target, so these results stand for it. Two
+commits after it were not measured in Necto: custom stores must implement the journal
+methods (a compile-time change), and three wording fixes, one of them in the app's badge
+sheet.
 
 ### Automated
 
@@ -96,6 +99,7 @@ lowers the deployment target to iOS 16. The work was restacked onto `main` as
 | A mock without `HttpOnly` over a real `HttpOnly` cookie | storage refuses it | 96e2a4b | `R` stays and nothing is journaled; usage.md says to add `HttpOnly` to the mock |
 | `cookies` log lines | pass | 96e2a4b | `log show` lists each journaled write and each change with its trigger and counts. The simulator showed `.private` names unredacted; redaction on a device not verified |
 | recipes.md "Run a QA scenario from an agent", followed as written on a fresh install | pass | 3b0f036 | The copied `configuration.json` applied from the first, pre-attach request; `earlierLaunches` kept that launch's cookie; the end check read `mockedCookies` 0 and `authMocked` false. `simctl terminate` exits nonzero when the app is not running, so the recipe adds `|| true` |
+| The badge sheet's mocked cookie sentence | not verified | | Covered by `BadgeControlTests` only; the sheet was not opened with a mocked cookie in use |
 
 ## 0.1.0 — not tagged yet
 
