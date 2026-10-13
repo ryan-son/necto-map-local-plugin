@@ -162,7 +162,9 @@ enum BadgeControl {
     ///
     /// Recording a mocked sign-in does not raise the revision, so the revision check alone
     /// would turn off without the guidance the user never saw. Every other change is left
-    /// to the revision check.
+    /// to the revision check. Mocked cookie counts also change without a revision, and are
+    /// deliberately not asked about again: their sentence is information, and turning off
+    /// sets the cookies aside either way.
     static func confirm(_ shown: BadgeSheet, now: BadgeSheet?) -> Step {
         if now?.sessionAtRisk == true, !shown.sessionAtRisk { return .askAgain }
         return .turnOff(baseRevision: shown.baseRevision)

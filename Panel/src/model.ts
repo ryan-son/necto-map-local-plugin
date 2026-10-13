@@ -59,8 +59,9 @@ export class PanelModel {
   discardCookies = async (): Promise<WriteResult> => {
     try {
       const result = await this.api.restoreCookies();
-      // A failure an earlier discard left on screen no longer holds.
-      if (this.lastFailure) {
+      // A failure an earlier discard left on screen no longer holds. A failed save does: its
+      // write never landed, and only a save that succeeds clears it.
+      if (this.lastFailure && this.failedDuring === "discard") {
         this.lastFailure = undefined;
         this.changed("write");
       }
@@ -107,7 +108,8 @@ export class PanelModel {
   private afterWrite(result: WriteResult) {
     this.known = Math.max(this.known, result.revision);
     if (result.ok) {
-      this.lastFailure = undefined;
+      // The cookies a failed discard left are still there, so its report stays.
+      if (this.failedDuring !== "discard") this.lastFailure = undefined;
       this.conflict = false;
     } else {
       this.conflict =

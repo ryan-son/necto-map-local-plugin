@@ -5803,6 +5803,39 @@ describe("mocked cookies notice", () => {
     expect(model.lastFailure).toBeUndefined();
   });
 
+  test("a save that fails after a failed discard is reported as a save", async () => {
+    const api = new FakeAPI();
+    api.current = { ...engineState(), mockedCookies: 1 };
+    api.cookieError = new Error("journal locked");
+    const { root, model } = mount(api);
+    click($(root, '[data-field="discard-cookies"]'));
+    await flush();
+    api.results = [{ ok: false, reason: "invalid", message: "bad", revision: 0 }];
+    await model.setUnmatched({ mode: "passthrough" });
+    await flush();
+    expect($(root, ".necto-notice-danger").textContent).toMatch(/^저장하지 못했습니다\(/);
+  });
+
+  test("a discard reports and clears only its own failure: a failed save stays until a save succeeds", async () => {
+    const api = new FakeAPI();
+    api.current = { ...engineState(), mockedCookies: 1 };
+    const { root, model } = mount(api);
+    api.results = [{ ok: false, reason: "invalid", message: "bad", revision: 0 }];
+    await model.setUnmatched({ mode: "passthrough" });
+    await flush();
+    click($(root, '[data-field="discard-cookies"]'));
+    await flush();
+    expect(model.lastFailure?.ok).toBe(false);
+    expect($(root, ".necto-notice-danger").textContent).toMatch(/^저장하지 못했습니다\(/);
+    // And the reverse: a save that succeeds leaves a failed discard on screen.
+    api.cookieError = new Error("journal locked");
+    click($(root, '[data-field="discard-cookies"]'));
+    await flush();
+    await model.setUnmatched({ mode: "passthrough" });
+    await flush();
+    expect($(root, ".necto-notice-danger").textContent).toMatch(/^목업 쿠키를 버리지 못했습니다\(/);
+  });
+
   test("shows nothing when no mocked cookie is journaled, or the app is older", () => {
     const { root } = mount(new FakeAPI());
     expect(root.querySelector('[data-notice="mocked-cookies"]')).toBeNull();

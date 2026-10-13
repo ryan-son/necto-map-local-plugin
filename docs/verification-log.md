@@ -71,10 +71,13 @@ cookie and sends its request at launch, because `idb` could not tap with this Xc
 The commits named below are on `feature/mocked-cookie-journal` (kept as the tag
 `archive/mocked-cookie-journal`), which sat on a branch that lowers the deployment target to
 iOS 16. The work was restacked onto `main` as `feature/cookie-journal`. At its docs commit
-the code matched that branch apart from the target, so these results stand for it. Two
+there was no functional change from that branch apart from the target (one test moved
+between suites, and the design drafts were left out), so these results stand for it. The
 commits after it were not measured in Necto: custom stores must implement the journal
-methods (a compile-time change), and three wording fixes, one of them in the app's badge
-sheet.
+methods (a compile-time change), the panel's failure banner tracks whether a save or a
+discard failed and clears only its own, and the wording of the cookie notice, the failed
+discard and the app's badge sheet changed. The test counts below are the archive build's;
+see the pull request for the counts at its head.
 
 ### Automated
 
