@@ -10,7 +10,7 @@
 - Responses: each tab says what it holds (status, network error, delay), a dot marks the one the app gets, "Name" renames a response, and each tab's × deletes it without making it the one the app gets. Tabs wrap onto more lines instead of widening the editor, and a long name is cut short with all of it shown on hover. Status takes a typed code or one from "Common codes"; a code outside 100–599 is not saved
 - Keyboard: ↑↓ to move through a list, ⌘↩ to mock, `/` to search. Deleting offers undo instead of asking first
 - Add allowed hosts by typing them or by picking them from traffic. The header reads "Map Local on/off"; while it is off, a notice says no rule applies and the rules are dimmed
-- In a panel narrower than 640 px the allowed hosts fold behind an "Allowed hosts N" button ("No allowed hosts — add one" in the warning colour when there are none) and open over the content; the header's first row no longer squeezes its labels
+- In a panel narrower than 640 px the allowed hosts fold behind an "Allowed hosts N" button ("No allowed hosts — add one" in the warning colour when there are none; wider, the hosts' caption reads "No allowed hosts" in the warning colour) and open over the content; the header's first row no longer squeezes its labels
 - "+ Rule" starts a rule off until its path is first edited, so an empty rule answers nothing
 - "Paste configuration" shows what the pasted text holds before importing it
 - Captures, configuration copies and the request log carry values as they are, as Necto's network records do. Copying the configuration warns in one line when something looks like a token

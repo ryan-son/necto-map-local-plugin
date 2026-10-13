@@ -726,7 +726,17 @@ export class View {
             onkeydown: (e) => this.hostsEscape(e as KeyboardEvent),
             onfocusout: () => this.closeHostsIfFocusLeft(),
           },
-          h("span", { class: "necto-caption", title: t("Only requests to these hosts can be mocked or blocked. The rest always go to the real server") }, t("Allowed hosts")),
+          // With none, the caption says so: the hint after it is the first thing cut short.
+          h(
+            "span",
+            {
+              class: "necto-caption",
+              "data-field": "hosts-caption",
+              "data-empty": configuration.allowedHosts.length === 0 ? "" : undefined,
+              title: t("Only requests to these hosts can be mocked or blocked. The rest always go to the real server"),
+            },
+            configuration.allowedHosts.length === 0 ? t("No allowed hosts") : t("Allowed hosts"),
+          ),
           ...hosts,
           this.hostInput(),
           ...candidates,
