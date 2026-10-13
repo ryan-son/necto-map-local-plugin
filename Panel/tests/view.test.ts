@@ -5891,4 +5891,18 @@ describe("a narrow panel folds the allowed hosts behind one button", () => {
     expect(narrow).toMatch(/\.ml-head\[data-hosts-open\] \.ml-host-group\[data-group="allowed-hosts"\]\s*\{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap[^}]*position:\s*absolute/);
     expect(narrow).toMatch(/\.ml-head\s*\{[^}]*position:\s*relative/);
   });
+
+  test("the open hosts sit above the rule list's toolbar and split handle but under toasts and dialogs, so an undo stays reachable", () => {
+    const z = (block: string, selector: string) => {
+      const at = block.indexOf(`${selector} {`);
+      expect(at).toBeGreaterThanOrEqual(0);
+      return Number(/z-index:\s*(\d+)/.exec(block.slice(at, block.indexOf("}", at)))![1]);
+    };
+    const narrow = css.slice(css.indexOf("@container ml-panel (max-width: 639px)"));
+    const hosts = z(narrow, '.ml-head[data-hosts-open] .ml-host-group[data-group="allowed-hosts"]');
+    expect(hosts).toBeGreaterThan(z(css, ".ml-rules > .necto-toolbar"));
+    expect(hosts).toBeGreaterThan(z(css, ".ml-split-handle"));
+    expect(hosts).toBeLessThan(z(css, ".ml-toasts"));
+    expect(hosts).toBeLessThan(z(css, ".ml-dialog-layer"));
+  });
 });

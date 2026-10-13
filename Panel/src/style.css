@@ -783,7 +783,8 @@ select {
     top: calc(100% + var(--necto-space-1));
     left: var(--necto-space-3);
     right: var(--necto-space-3);
-    z-index: 10;
+    /* Over the list, under toasts and dialogs, so an undo stays in reach. */
+    z-index: 4;
     max-height: 50vh;
     overflow-y: auto;
     padding: var(--necto-space-2);
