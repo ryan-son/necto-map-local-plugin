@@ -44,7 +44,8 @@ Map Local mocks only requests to an allowed host.
   from the "Traffic" tab adds its host too. In a panel narrower than 640 px the hosts fold
   behind an "Allowed hosts N" button in the header ("No allowed hosts — add one" when
   there are none); press it to open them, and press outside them or move focus away to
-  close.
+  close. Wider, the caption before the hosts reads "No allowed hosts" in the warning colour
+  while there are none.
 - **Write internationalized domain names (IDN) in punycode.** The engine receives a Unicode
   request host percent-encoded, so an allowed host such as `한국.kr` never matches any
   request. The "+ Host" field does not add such a host. It shows "Enter a Unicode host as

@@ -5944,6 +5944,23 @@ describe("a narrow panel folds the allowed hosts behind one button", () => {
     expect(css).toMatch(/\.ml-hosts-toggle\[data-empty\]\s*\{[^}]*color:\s*var\(--necto-warning\)/);
   });
 
+  test("wider, with no allowed hosts, the hosts' caption says so in a warning colour, since the hint after it may not fit", () => {
+    const api = new FakeAPI();
+    api.current = engineState({ ...configuration(), allowedHosts: [] });
+    const { root } = mount(api);
+    const caption = $(root, '[data-group="allowed-hosts"] [data-field="hosts-caption"]');
+    expect(caption.textContent).toBe("허용 호스트 없음");
+    expect(caption.hasAttribute("data-empty")).toBe(true);
+    expect(css).toMatch(/\[data-field="hosts-caption"\]\[data-empty\]\s*\{[^}]*color:\s*var\(--necto-warning\)/);
+  });
+
+  test("with allowed hosts, the caption is the plain label", () => {
+    const { root } = mount();
+    const caption = $(root, '[data-group="allowed-hosts"] [data-field="hosts-caption"]');
+    expect(caption.textContent).toBe("허용 호스트");
+    expect(caption.hasAttribute("data-empty")).toBe(false);
+  });
+
   test("Tab leaving the hosts closes them, so they never cover what has focus; a dialog they opened keeps them", () => {
     const { root } = mount();
     click(toggle(root));
