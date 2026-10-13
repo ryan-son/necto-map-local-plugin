@@ -3410,6 +3410,24 @@ describe("ARIA matches the screen (principle 9)", () => {
     expect(other.getAttribute("aria-selected")).toBe("false");
   });
 
+  test("response tabs wrap instead of widening the editor, and a long name is cut short with its full text on hover", () => {
+    const long = "maintenance-window-with-a-very-long-descriptive-response-name-for-qa";
+    const api = new FakeAPI();
+    api.current = engineState(
+      configuration([{ ...rule("a"), responses: { ok: { status: 200 }, [long]: { status: 503 } } }]),
+    );
+    const { root } = mount(api);
+    click($(root, '[data-rule="a"] .ml-path'));
+    const name = $(root, `[data-response="${long}"] .ml-tab-name`);
+    expect(name.textContent).toBe(long);
+    expect(name.getAttribute("title")).toBe(long);
+    // The tab's name for assistive technology stays the whole name and its summary.
+    expect($(root, `[data-response="${long}"]`).textContent).toBe(`${long}503`);
+    expect(css).toMatch(/\.ml-response-tabs \.necto-tabs\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(css).toMatch(/\.ml-response-tabs \.necto-tab\s*\{[^}]*white-space:\s*nowrap/);
+    expect(css).toMatch(/\.ml-tab-name\s*\{[^}]*max-width:\s*24ch[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis/);
+  });
+
   test("Tab order: header → tabs → (tools) → list → handle → detail, with no positive tabindex", async () => {
     const { root } = mount();
     click($(root, '[data-rule="a"] .ml-path'));

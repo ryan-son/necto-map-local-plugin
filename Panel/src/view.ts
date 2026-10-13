@@ -1678,7 +1678,8 @@ export class View {
                   this.removeResponse(name);
                 },
               },
-              name,
+              // A long name is cut short to keep the tabs readable; hovering shows all of it.
+              h("span", { class: "ml-tab-name", title: name }, name),
               h("span", { class: "ml-tab-meta" }, responseSummary(rule.responses[name] ?? {})),
               ),
               // Each tab deletes itself, so a response the app doesn't get goes without first
