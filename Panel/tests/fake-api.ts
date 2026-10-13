@@ -70,6 +70,13 @@ export class FakeAPI implements MapLocalAPI {
     return { ok: true as const, revision: this.revision };
   }
   async exportConfiguration() { return this.current.configuration; }
+  /// Thrown once by the next `restoreCookies`, as a failed bridge call would be.
+  cookieError?: unknown;
+  async restoreCookies() {
+    this.calls.push("maplocal.cookies.restore");
+    if (this.cookieError) { const e = this.cookieError; this.cookieError = undefined; throw e; }
+    return { ok: true as const, revision: this.revision, mockedCookies: 0, setAsideCookies: 0, deleted: 0, restored: 0, skipped: 0 };
+  }
   async observeState(on: (s: EngineState) => void, onError: (e: unknown) => void) {
     if (this.stateError) { const e = this.stateError; this.stateError = undefined; throw e; }
     this.onState = on;
