@@ -54,6 +54,10 @@ const byCode: Record<string, (params: Params) => string> = {
   fileMovedAside: (p) => t("Couldn't read the configuration file, so it was moved aside to {file}", p),
   fileTooNew: (p) => t("Configuration version {version} is newer than this plugin, so it is read-only", p),
   ruleUnsupported: (p) => t("Rule {rule}: {cause}", p),
+  cookieJournalUnreadable: (p) =>
+    t("Couldn't read the cookie journal, so mocked cookies can't be restored until the app relaunches: {error}", p),
+  cookieJournalDeleted: () => t("The cookie journal couldn't be read and was deleted"),
+  cookieJournalSaveFailed: (p) => t("Couldn't save the cookie journal: {error}", p),
   // Necto's own error codes, for a call that failed before the engine could answer, such
   // as an input the manifest's schema refused. `detail` is Necto's English text.
   INVALID_INPUT: (p) => t("The app refused the input: {detail}", p),

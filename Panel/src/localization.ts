@@ -374,6 +374,10 @@ export const ko: Record<string, string> = {
   "Configuration version {version} is newer than this plugin, so it is read-only":
     "설정 파일의 버전({version})이 이 플러그인보다 새 버전이라 읽기 전용입니다",
   "Rule {rule}: {cause}": "규칙 {rule}: {cause}",
+  "Couldn't read the cookie journal, so mocked cookies can't be restored until the app relaunches: {error}":
+    "쿠키 저널을 읽을 수 없어 앱을 다시 실행할 때까지 목업 쿠키를 되돌릴 수 없습니다: {error}",
+  "The cookie journal couldn't be read and was deleted": "쿠키 저널을 읽을 수 없어 삭제했습니다",
+  "Couldn't save the cookie journal: {error}": "쿠키 저널을 저장하지 못했습니다: {error}",
 };
 
 export const t = necto.createTranslator({ ko });
