@@ -51,6 +51,8 @@ different ID as a different plugin, with its own permissions and storage.
 | `maplocal.rule.setActive` | `plugin send` | Switches the response a rule answers with |
 | `maplocal.requests.list` | `plugin send` | Returns the most recent requests since launch, up to 500 |
 | `maplocal.requests.observe` | `plugin subscribe` | Sends one event for every request the app makes from now on |
+| `maplocal.cookies.list` | `plugin send` | Lists the keys of mocked cookies: domain, path, name, layer and launch. Never a value |
+| `maplocal.cookies.restore` | `plugin send` | Discards mocked cookies and brings the real ones back. `"scope": "earlierLaunches"` leaves this launch's alone |
 
 `network.list`, `network.detail` and `network.observe` return what Necto's network plugin
 recorded. They are available only when the app registers that plugin.
@@ -65,6 +67,16 @@ response, and turn Map Local on:
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.configuration.replace --device <id> --app <bundle> --input-file mocks.json
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.rule.setActive --device <id> --app <bundle> --input '{"baseRevision":3,"id":"login","response":"ok"}'
 necto-cli plugin send io.github.ryan-son.maplocal maplocal.configuration.patch --device <id> --app <bundle> --input '{"baseRevision":3,"enabled":true}'
+```
+
+`maplocal.state` also reports `mockedCookies`, `setAsideCookies` and `lastCookieChange`:
+what the last restore, set-aside or put-back did, present from launch unless the cookie
+journal could not be read or saved. An agent ends a scenario with this command, then
+checks that `mockedCookies` is 0 and `authMocked` is false in `maplocal.state`
+([Run a QA scenario from an agent](recipes.md#run-a-qa-scenario-from-an-agent)):
+
+```bash
+necto-cli plugin send io.github.ryan-son.maplocal maplocal.cookies.restore --device <id> --app <bundle> --input '{}'
 ```
 
 Every operation declares its input and output in `Panel/public/manifest.json`: required
@@ -99,6 +111,8 @@ Everything else fails the call, so the CLI exits with a nonzero exit code:
 | `INVALID_INPUT` | Malformed input. Necto checks the schema first, then the app checks again |
 | `OPERATION_UNAVAILABLE` | A rule or response that doesn't exist |
 | `PROVIDER_FAILED` | A failed save |
+| `OPERATION_UNAVAILABLE` | `maplocal.cookies.restore` while the cookie journal can't be read (`cookieJournalUnreadable`) |
+| `PROVIDER_FAILED` | `maplocal.cookies.restore` changed cookies but couldn't save the journal (`cookieJournalSaveFailed`); `details` carries `deleted`, `restored` and `skipped` |
 
 An error from the app carries `reason`, `code`, `params`, an English `message` and
 `revision` in `details`. The codes are stable, and are listed in
