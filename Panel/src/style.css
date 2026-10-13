@@ -824,6 +824,20 @@ select {
 /* A rule switch while Map Local is off: its value stands, but it does nothing. */
 .necto-switch[data-overridden] { opacity: 0.5; filter: saturate(0.4); }
 
+/*
+ * The host's tabs are one line. Responses wrap onto more lines instead, so every response,
+ * including the one the app gets, stays in view and the editor never scrolls sideways.
+ */
+.ml-response-tabs .necto-tabs { flex-wrap: wrap; min-width: 0; }
+.ml-response-tabs .necto-tab { white-space: nowrap; }
+.ml-tab-name {
+  display: inline-block;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
 /* Each response tab's delete keeps its room while hidden, so tabs don't widen on hover. */
 .ml-tab-wrap { display: inline-flex; align-items: center; }
 .ml-tab-remove { visibility: hidden; padding: 0 var(--necto-space-1); }
