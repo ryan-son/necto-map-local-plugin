@@ -25,6 +25,7 @@ export const ko: Record<string, string> = {
   "Map Local off": "Map Local 꺼짐",
   "Allowed hosts": "허용 호스트",
   "Allowed hosts {count}": "허용 호스트 {count}",
+  "No allowed hosts — add one": "허용 호스트 없음 — 추가",
   "Only requests to these hosts can be mocked or blocked. The rest always go to the real server": "이 호스트로 가는 요청만 목업하거나 막을 수 있습니다. 나머지는 항상 실서버로 갑니다",
   "Remove from allowed hosts": "허용 호스트에서 빼기",
   "Remove {host} from allowed hosts": "{host} 허용 호스트에서 빼기",

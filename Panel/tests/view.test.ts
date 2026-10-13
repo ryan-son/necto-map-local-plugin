@@ -175,6 +175,10 @@ describe("on/off and blocked hosts read at a glance (O2, O3)", () => {
     expect(allowed.compareDocumentPosition(blocked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  test("only the allowed hosts take the row's spare room, so the empty-list hint isn't cut short by blocked hosts", () => {
+    expect(css).toMatch(/\.ml-host-group\[data-group="blocked-hosts"\]\s*\{[^}]*flex:\s*none/);
+  });
+
   test("each host group wraps as a unit and its chips do not break inside", () => {
     expect(css).toMatch(/\.ml-host-group\s*\{[^}]*display:\s*inline-flex/);
     expect(css).toMatch(/\.ml-chip\s*\{[^}]*white-space:\s*nowrap/);
@@ -3410,6 +3414,24 @@ describe("ARIA matches the screen (principle 9)", () => {
     expect(other.getAttribute("aria-selected")).toBe("false");
   });
 
+  test("response tabs wrap instead of widening the editor, and a long name is cut short with its full text on hover", () => {
+    const long = "maintenance-window-with-a-very-long-descriptive-response-name-for-qa";
+    const api = new FakeAPI();
+    api.current = engineState(
+      configuration([{ ...rule("a"), responses: { ok: { status: 200 }, [long]: { status: 503 } } }]),
+    );
+    const { root } = mount(api);
+    click($(root, '[data-rule="a"] .ml-path'));
+    const name = $(root, `[data-response="${long}"] .ml-tab-name`);
+    expect(name.textContent).toBe(long);
+    expect(name.getAttribute("title")).toBe(long);
+    // The tab's name for assistive technology stays the whole name and its summary.
+    expect($(root, `[data-response="${long}"]`).textContent).toBe(`${long}503`);
+    expect(css).toMatch(/\.ml-response-tabs \.necto-tabs\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(css).toMatch(/\.ml-response-tabs \.necto-tab\s*\{[^}]*white-space:\s*nowrap/);
+    expect(css).toMatch(/\.ml-tab-name\s*\{[^}]*max-width:\s*24ch[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis/);
+  });
+
   test("Tab order: header → tabs → (tools) → list → handle → detail, with no positive tabindex", async () => {
     const { root } = mount();
     click($(root, '[data-rule="a"] .ml-path'));
@@ -5908,12 +5930,85 @@ describe("a narrow panel folds the allowed hosts behind one button", () => {
     expect(document.activeElement).toBe(toggle(root));
   });
 
+  test("its accessible name is the count alone, without the drawn arrow", () => {
+    const { root } = mount();
+    expect(toggle(root).getAttribute("aria-label")).toBe("허용 호스트 1");
+  });
+
+  test("with no allowed hosts, the button says so in a warning colour, since nothing else on a narrow screen does", () => {
+    const api = new FakeAPI();
+    api.current = engineState({ ...configuration(), allowedHosts: [] });
+    const { root } = mount(api);
+    expect(toggle(root).textContent).toBe("허용 호스트 없음 — 추가");
+    expect(toggle(root).hasAttribute("data-empty")).toBe(true);
+    expect(css).toMatch(/\.ml-hosts-toggle\[data-empty\]\s*\{[^}]*color:\s*var\(--necto-warning\)/);
+  });
+
+  test("Tab leaving the hosts closes them, so they never cover what has focus; a dialog they opened keeps them", () => {
+    const { root } = mount();
+    click(toggle(root));
+    ($(root, ".necto-tab") as HTMLElement).focus();
+    vi.runAllTimers();
+    expect(isOpen(root)).toBe(false);
+  });
+
+  test("a confirmation opened from inside the hosts, and a click on its backdrop, leave them open", () => {
+    const auth = { ...rule("login"), tags: ["auth"] };
+    const api = new FakeAPI();
+    api.current = { ...engineState({ ...configuration([auth]), allowedHosts: ["maplocal.invalid"] }), authMocked: true };
+    const { root } = mount(api);
+    click(toggle(root));
+    click(field(root, "remove-host-maplocal.invalid"));
+    vi.runAllTimers();
+    expect($(root, ".necto-dialog")).not.toBeNull();
+    click($(root, ".necto-dialog-scrim"));
+    expect(isOpen(root)).toBe(true);
+  });
+
+  test("Escape on the button while open closes the hosts, not the rule editor", () => {
+    const { root } = mount();
+    click(toggle(root));
+    toggle(root).focus();
+    const esc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    toggle(root).dispatchEvent(esc);
+    expect(isOpen(root)).toBe(false);
+    expect(esc.defaultPrevented).toBe(true);
+  });
+
+  test("Escape is left alone while composing, and when the hosts aren't folded (a wide panel) so it reaches the rules", () => {
+    const { root } = mount();
+    click(toggle(root));
+    const composing = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true, isComposing: true });
+    field(root, "add-host").dispatchEvent(composing);
+    expect(isOpen(root)).toBe(true);
+    toggle(root).style.display = "none";
+    const esc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    field(root, "add-host").dispatchEvent(esc);
+    expect(esc.defaultPrevented).toBe(false);
+  });
+
   test("below 640 px the button stands in for the hosts, which open over the content as a panel; wider, the button is hidden", () => {
     expect(css).toMatch(/\.ml-hosts-toggle\s*\{[^}]*display:\s*none/);
-    const narrow = css.slice(css.indexOf("@container ml-panel (max-width: 639px)"));
+    const start = css.indexOf("@container ml-panel (max-width: 639px)");
+    // Only the narrow block: up to the next rule at the top level.
+    const narrow = css.slice(start, css.indexOf("\n}\n", start));
     expect(narrow).toMatch(/\.ml-hosts-toggle\s*\{[^}]*display:\s*inline-flex/);
     expect(narrow).toMatch(/\.ml-host-group\[data-group="allowed-hosts"\]\s*\{[^}]*display:\s*none/);
     expect(narrow).toMatch(/\.ml-head\[data-hosts-open\] \.ml-host-group\[data-group="allowed-hosts"\]\s*\{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap[^}]*position:\s*absolute/);
     expect(narrow).toMatch(/\.ml-head\s*\{[^}]*position:\s*relative/);
+  });
+
+  test("the open hosts sit above the rule list's toolbar and split handle but under toasts and dialogs, so an undo stays reachable", () => {
+    const z = (block: string, selector: string) => {
+      const at = block.indexOf(`${selector} {`);
+      expect(at).toBeGreaterThanOrEqual(0);
+      return Number(/z-index:\s*(\d+)/.exec(block.slice(at, block.indexOf("}", at)))![1]);
+    };
+    const narrow = css.slice(css.indexOf("@container ml-panel (max-width: 639px)"));
+    const hosts = z(narrow, '.ml-head[data-hosts-open] .ml-host-group[data-group="allowed-hosts"]');
+    expect(hosts).toBeGreaterThan(z(css, ".ml-rules > .necto-toolbar"));
+    expect(hosts).toBeGreaterThan(z(css, ".ml-split-handle"));
+    expect(hosts).toBeLessThan(z(css, ".ml-toasts"));
+    expect(hosts).toBeLessThan(z(css, ".ml-dialog-layer"));
   });
 });
