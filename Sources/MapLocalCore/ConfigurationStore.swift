@@ -24,6 +24,13 @@ public protocol ConfigurationStore: Sendable {
     /// It is stored so that the warning survives a relaunch of the app.
     func loadAuthMocked() -> Bool
     func saveAuthMocked(_ value: Bool)
+    /// The journal of cookies mocked responses wrote.
+    ///
+    /// There is no default: a store that kept nothing would lose the journal on relaunch, and
+    /// a discard after that could not bring the real cookies back. A store that wraps
+    /// `FileConfigurationStore` forwards these two as well.
+    func loadCookieJournal() -> CookieJournalLoad
+    func saveCookieJournal(_ journal: CookieJournal) throws
 }
 
 /// Stores the configuration as JSON in a directory of the app's container.
@@ -99,6 +106,35 @@ public struct FileConfigurationStore: ConfigurationStore {
             try? FileManager.default.removeItem(at: authMarker)
         }
     }
+
+    var journalFile: URL { directory.appending(path: "cookie-journal.json") }
+
+    public func loadCookieJournal() -> CookieJournalLoad {
+        guard FileManager.default.fileExists(atPath: journalFile.path(percentEncoded: false)) else {
+            return .loaded(.empty)
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: journalFile)
+        } catch {
+            return .unreadable(error.localizedDescription)
+        }
+        do {
+            return .loaded(try JSONDecoder().decode(CookieJournal.self, from: data))
+        } catch {
+            try? FileManager.default.removeItem(at: journalFile)
+            return .invalid
+        }
+    }
+
+    public func saveCookieJournal(_ journal: CookieJournal) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try JSONEncoder().encode(journal).write(to: journalFile, options: .atomic)
+        var file = journalFile
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try file.setResourceValues(values)
+    }
 }
 
 /// Keeps the configuration in memory, for tests.
@@ -109,13 +145,20 @@ final class MemoryConfigurationStore: ConfigurationStore {
         var saved: [Configuration] = []
         var authMocked = false
         var failsSaving = false
+        var journal: CookieJournalLoad
+        var failsSavingJournal = false
     }
 
     private let state: OSAllocatedUnfairLock<State>
 
-    init(_ initial: Configuration = .empty, readOnly: Bool = false, authMocked: Bool = false) {
+    init(
+        _ initial: Configuration = .empty,
+        readOnly: Bool = false,
+        authMocked: Bool = false,
+        journal: CookieJournalLoad = .loaded(.empty)
+    ) {
         state = OSAllocatedUnfairLock(
-            initialState: State(initial: initial, readOnly: readOnly, authMocked: authMocked)
+            initialState: State(initial: initial, readOnly: readOnly, authMocked: authMocked, journal: journal)
         )
     }
 
@@ -140,5 +183,20 @@ final class MemoryConfigurationStore: ConfigurationStore {
 
     func loadAuthMocked() -> Bool { state.withLock { $0.authMocked } }
     func saveAuthMocked(_ value: Bool) { state.withLock { $0.authMocked = value } }
+
+    /// The journal as last saved, or as given to `init`.
+    var journal: CookieJournalLoad { state.withLock { $0.journal } }
+
+    /// Makes every later journal save fail.
+    func failSavingJournal() { state.withLock { $0.failsSavingJournal = true } }
+
+    func loadCookieJournal() -> CookieJournalLoad { state.withLock { $0.journal } }
+
+    func saveCookieJournal(_ journal: CookieJournal) throws {
+        try state.withLock { state in
+            if state.failsSavingJournal { throw CocoaError(.fileWriteOutOfSpace) }
+            state.journal = .loaded(journal)
+        }
+    }
 }
 #endif

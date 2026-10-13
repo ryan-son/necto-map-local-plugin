@@ -58,6 +58,52 @@ hesitated.>
 <Each check above that was not run, and why.>
 ```
 
+## Unreleased: mocked cookie journal — 2026-10-12
+
+Build: 0ea31ac (branch `feature/mocked-cookie-journal`) · Necto 0.2.0 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
+Targets: iOS simulator (iPhone 18 Pro, iOS 27.0) · device: none
+
+Only the mocked cookie work was checked here; the rows of the template that it does not
+touch were not rerun. The app was a throwaway copy of QuickStart that logs the probe
+cookie and sends its request at launch, because `idb` could not tap with this Xcode
+(SimulatorKit missing). Calls went through `necto-cli` in the Necto app bundle.
+
+The commits named below are on `feature/mocked-cookie-journal` (kept as the tag
+`archive/mocked-cookie-journal`), which sat on a branch that lowers the deployment target to
+iOS 16. The work was restacked onto `main` as `feature/cookie-journal`. At its docs commit
+there was no functional change from that branch apart from the target (one test moved
+between suites, and the design drafts were left out), so these results stand for it. The
+commits after it were not measured in Necto: custom stores must implement the journal
+methods (a compile-time change), the panel's failure banner tracks whether a save or a
+discard failed and clears only its own, and the wording of the cookie notice, the failed
+discard and the app's badge sheet changed. The test counts below are the archive build's;
+see the pull request for the counts at its head.
+
+### Automated
+
+| Check | Result |
+| --- | --- |
+| `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 |
+| `swift test` | 88 + 131 tests (was 86 + 74) |
+| `cd Panel && npx vitest run` | 1123 tests (was 1115) |
+| Release workflow on GitHub (tag check, CI, assets) | not run |
+
+### In Necto
+
+| Check | Result | Build | Notes |
+| --- | --- | --- | --- |
+| A mocked `Set-Cookie` over a real cookie makes `mockedCookies` 1 and `cookies.list` names it | pass | 0ea31ac | Real `R` set at launch, rule mocks `GET httpbin.org/json` with `Max-Age=3600` |
+| `cookies.restore` from `necto-cli` brings the real cookie back | pass | 0ea31ac | `restored: 1`; the stored cookie is `R` with its original expiry |
+| Turning Map Local off sets the mock aside, on brings it back | pass | 0ea31ac | `setAsideCookies` 1 and `R` stored, then `reapplied` 1 and `M` stored |
+| Relaunching with Map Local off sets cookies aside | pass after a fix | 0ea31ac | At 2b6fde8 it failed: `simctl terminate` lost the unsaved mocked write, and the launch check called the entry rewritten (`skipped`). Fixed in 96e2a4b and rerun at 0ea31ac; now `restored` 1, `setAsideCookies` 1 |
+| After that relaunch, turning on reapplies the mock | pass | 0ea31ac | `reapplied` 1, so the set-aside record still equals storage after a relaunch (expiry precision) |
+| `cookies.restore`, `simctl terminate` at once, relaunch | pass | 0ea31ac | Relaunched with `R` and an empty `cookies.list` |
+| An `HttpOnly` mock over a plain real cookie: off, on, discard | pass | 0ea31ac | `R` → `M` (HttpOnly) → off `R` → on `M` → discard `R`. Before 195853c a restore set `R` without deleting `M` first, and storage refused it, so `M` stayed |
+| A mock without `HttpOnly` over a real `HttpOnly` cookie | storage refuses it | 96e2a4b | `R` stays and nothing is journaled; usage.md says to add `HttpOnly` to the mock |
+| `cookies` log lines | pass | 96e2a4b | `log show` lists each journaled write and each change with its trigger and counts. The simulator showed `.private` names unredacted; redaction on a device not verified |
+| recipes.md "Run a QA scenario from an agent", followed as written on a fresh install | pass | 3b0f036 | The copied `configuration.json` applied from the first, pre-attach request; `earlierLaunches` kept that launch's cookie; the end check read `mockedCookies` 0 and `authMocked` false. `simctl terminate` exits nonzero when the app is not running, so the recipe adds `|| true` |
+| The badge sheet's mocked cookie sentence | not verified | | Covered by `BadgeControlTests` only; the sheet was not opened with a mocked cookie in use |
+
 ## 0.1.0 — not tagged yet
 
 Build: 7133677 (branch `feature/traffic-tab`) for the automated checks. The checks in Necto

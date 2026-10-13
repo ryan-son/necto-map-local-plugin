@@ -16,6 +16,8 @@ export class PanelModel {
   state?: EngineState;
   requests: RequestEvent[] = [];
   lastFailure?: WriteResult;
+  /// What lastFailure came from, so the banner says a discard failed rather than a save.
+  failedDuring?: "save" | "discard";
   conflict = false;
   private known = 0;
   private inflight: Promise<unknown> = Promise.resolve();
@@ -52,6 +54,26 @@ export class PanelModel {
     this.send("maplocal.configuration.patch", { allowedHosts });
   setUnmatched = (unmatched: Unmatched) => this.send("maplocal.configuration.patch", { unmatched });
   acknowledgeSession = () => this.send("maplocal.configuration.patch", { authMocked: false });
+  /// Discards mocked cookies. Not a configuration write, so it skips the writer and its
+  /// baseRevision; the state that follows carries the new counts.
+  discardCookies = async (): Promise<WriteResult> => {
+    try {
+      const result = await this.api.restoreCookies();
+      // A failure an earlier discard left on screen no longer holds. A failed save does: its
+      // write never landed, and only a save that succeeds clears it.
+      if (this.lastFailure && this.failedDuring === "discard") {
+        this.lastFailure = undefined;
+        this.changed("write");
+      }
+      return { ok: true, revision: result.revision };
+    } catch (error: unknown) {
+      const failure = failureFrom(error, this.known);
+      this.lastFailure = failure;
+      this.failedDuring = "discard";
+      this.changed("write");
+      return failure;
+    }
+  };
   reorder = (order: string[]) => this.send("maplocal.configuration.patch", { order });
   upsertRule = (rule: Rule) => this.send("maplocal.rule.upsert", { rule });
   deleteRule = (id: string) => this.send("maplocal.rule.delete", { id });
@@ -73,6 +95,7 @@ export class PanelModel {
     const result = this.writer.submit(op, input).catch((error: unknown): WriteResult => {
       const failure = failureFrom(error, this.known);
       this.lastFailure = failure;
+      this.failedDuring = "save";
       // Not a conflict, so a conflict notice left by earlier writes no longer holds.
       this.conflict = false;
       this.changed("write");
@@ -85,7 +108,8 @@ export class PanelModel {
   private afterWrite(result: WriteResult) {
     this.known = Math.max(this.known, result.revision);
     if (result.ok) {
-      this.lastFailure = undefined;
+      // The cookies a failed discard left are still there, so its report stays.
+      if (this.failedDuring !== "discard") this.lastFailure = undefined;
       this.conflict = false;
     } else {
       this.conflict =
@@ -93,6 +117,7 @@ export class PanelModel {
         this.lastFailure?.ok === false &&
         this.lastFailure.reason === "conflict";
       this.lastFailure = result;
+      this.failedDuring = "save";
     }
     this.changed("write");
   }

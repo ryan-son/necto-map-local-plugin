@@ -25,6 +25,7 @@ export const ko: Record<string, string> = {
   "Map Local off": "Map Local 꺼짐",
   "Allowed hosts": "허용 호스트",
   "Allowed hosts {count}": "허용 호스트 {count}",
+  "No allowed hosts — add one": "허용 호스트 없음 — 추가",
   "Only requests to these hosts can be mocked or blocked. The rest always go to the real server": "이 호스트로 가는 요청만 목업하거나 막을 수 있습니다. 나머지는 항상 실서버로 갑니다",
   "Remove from allowed hosts": "허용 호스트에서 빼기",
   "Remove {host} from allowed hosts": "{host} 허용 호스트에서 빼기",
@@ -48,7 +49,14 @@ export const ko: Record<string, string> = {
   "A mocked login session may remain in the app. Log out in the app before you turn off or delete an auth rule.":
     "목업 로그인 세션이 앱에 남아 있을 수 있습니다. 인증 규칙을 끄거나 지우기 전에 앱에서 로그아웃하세요.",
   "I've logged out": "로그아웃했습니다",
+  "Mocked cookies in use: {count}": "목업 쿠키 {count}개 사용 중",
+  "Mocked cookies set aside until Map Local is on: {count}":
+    "목업 쿠키 {count}개를 보류했습니다. Map Local을 켜면 돌아옵니다",
+  "Discard mocked cookies": "목업 쿠키 버리기",
+  "Mocked cookies are set aside until you turn Map Local on again.":
+    "목업 쿠키는 Map Local을 다시 켤 때까지 보류됩니다.",
   "Couldn't save ({reason}): {message}": "저장하지 못했습니다({reason}): {message}",
+  "Couldn't discard mocked cookies ({reason}): {message}": "목업 쿠키를 버리지 못했습니다({reason}): {message}",
   "It keeps changing elsewhere. Check what just arrived": "다른 곳에서 계속 바뀌고 있습니다. 새로 받은 내용을 확인하세요",
   Undo: "되돌리기",
   Close: "닫기",
@@ -374,6 +382,10 @@ export const ko: Record<string, string> = {
   "Configuration version {version} is newer than this plugin, so it is read-only":
     "설정 파일의 버전({version})이 이 플러그인보다 새 버전이라 읽기 전용입니다",
   "Rule {rule}: {cause}": "규칙 {rule}: {cause}",
+  "Couldn't read the cookie journal, so mocked cookies can't be restored until the app relaunches: {error}":
+    "쿠키 저널을 읽을 수 없어 앱을 다시 실행할 때까지 목업 쿠키를 되돌릴 수 없습니다: {error}",
+  "The cookie journal couldn't be read and was deleted": "쿠키 저널을 읽을 수 없어 삭제했습니다",
+  "Couldn't save the cookie journal: {error}": "쿠키 저널을 저장하지 못했습니다: {error}",
 };
 
 export const t = necto.createTranslator({ ko });

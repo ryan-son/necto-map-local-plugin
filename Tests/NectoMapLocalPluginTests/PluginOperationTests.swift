@@ -509,6 +509,40 @@ struct PluginOperationTests {
         }
         #expect(milliseconds >= before - 1000 && milliseconds <= before + 60_000)
     }
+
+    @Test("cookies.restore reports what it did, and a read-only journal is unavailable")
+    func cookiesRestore() async throws {
+        let engine = MapLocalEngine(store: MemoryConfigurationStore(), blockedHosts: [], cookieJar: StorageCookieJar.isolated())
+        let url = URL(string: "https://maplocal.invalid/a")!
+        engine.writeMockedCookies(HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "sid=M; Path=/"], for: url), for: url, mainDocumentURL: nil)
+        let output = try await NectoMapLocalPlugin.perform(.cookiesRestore, input: .object([:]), engine: engine)
+        #expect(output["deleted"] == .number(1))
+        #expect(output["mockedCookies"] == .number(0))
+        #expect(output["entries"]?.arrayValue?.first?["action"] == .string("deleted"))
+        #expect(output["entries"]?.arrayValue?.first?["value"] == nil)
+
+        let locked = MapLocalEngine(store: MemoryConfigurationStore(journal: .unreadable("locked")), blockedHosts: [], cookieJar: StorageCookieJar.isolated())
+        await #expect(throws: NectoBridgeError.self) {
+            try await NectoMapLocalPlugin.perform(.cookiesRestore, input: .object([:]), engine: locked)
+        }
+    }
+
+    @Test("cookies.restore that cannot save fails with the counts in details")
+    func cookiesRestoreSaveFailure() async throws {
+        let store = MemoryConfigurationStore()
+        let engine = MapLocalEngine(store: store, blockedHosts: [], cookieJar: StorageCookieJar.isolated())
+        let url = URL(string: "https://maplocal.invalid/a")!
+        engine.writeMockedCookies(HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "sid=M; Path=/"], for: url), for: url, mainDocumentURL: nil)
+        store.failSavingJournal()
+        do {
+            _ = try await NectoMapLocalPlugin.perform(.cookiesRestore, input: .object([:]), engine: engine)
+            Issue.record("expected a failure")
+        } catch let error as NectoBridgeError {
+            #expect(error.code == .providerFailed)
+            #expect(error.details?["deleted"] == .number(1))
+            #expect(error.details?["code"] == .string("cookieJournalSaveFailed"))
+        }
+    }
 }
 }
 #endif

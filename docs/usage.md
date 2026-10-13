@@ -42,8 +42,9 @@ Map Local mocks only requests to an allowed host.
 - **With no allowed hosts, Map Local mocks nothing.** To add a host, type or paste a host
   or URL into the "+ Host" field in the panel header and press Return. Mocking a request
   from the "Traffic" tab adds its host too. In a panel narrower than 640 px the hosts fold
-  behind an "Allowed hosts N" button in the header; press it to open them, and press
-  outside them to close.
+  behind an "Allowed hosts N" button in the header ("No allowed hosts — add one" when
+  there are none); press it to open them, and press outside them or move focus away to
+  close.
 - **Write internationalized domain names (IDN) in punycode.** The engine receives a Unicode
   request host percent-encoded, so an allowed host such as `한국.kr` never matches any
   request. The "+ Host" field does not add such a host. It shows "Enter a Unicode host as
@@ -201,6 +202,27 @@ and press "I've logged out" in the panel. While a mocked session may remain:
 To keep a mocked token from reaching the real server with requests that no rule answers,
 also set [Requests without a rule](#requests-without-a-rule) to "Block (421)".
 
+## Mocked cookies
+
+A `Set-Cookie` in a mocked response goes into `HTTPCookieStorage.shared`, and Map Local
+remembers what was there before.
+
+- **Turning Map Local off** sets the mocked cookies aside and puts the real ones back, so
+  the app's requests carry only real cookies while it is off. While mocked cookies are in
+  use, the app's badge sheet says so, and so does the panel's confirmation when it asks
+  you to log out first.
+- **Turning it on** puts the set-aside cookies back, unless the real cookie changed or the
+  mocked one expired meanwhile. Then the real cookie stays.
+- **"Discard mocked cookies"** in the panel, `maplocal.cookies.restore` from the CLI, or
+  `NectoMapLocalPlugin.restoreMockedCookies()` from app code (inside `#if DEBUG`) removes
+  them for good and brings the real ones back.
+
+The panel shows how many mocked cookies are in use or set aside. A cookie that something
+else changed after the mock wrote it is left as it is.
+
+The cookie storage does not let a cookie without `HttpOnly` replace one with it. To mock
+over a real `HttpOnly` cookie, add `HttpOnly` to the mocked `Set-Cookie` too.
+
 ## The badge
 
 The app shows a small `Map Local` badge while Map Local is on and one of these applies:
@@ -306,12 +328,12 @@ These were measured on an iOS 26.4 simulator with Necto 0.2.0.
   `Location` header, and the target is never requested. A **real** redirect whose target a
   rule matches is mocked on that hop: the server answers the first request and the rule
   answers the redirected one.
-- `Set-Cookie` on a mocked response always goes into **`HTTPCookieStorage.shared`**, not
-  the session's own cookie storage, when the request handles cookies
-  (`httpShouldHandleCookies`, on by default). No public API lets Map Local write to the session's
-  storage. With an ephemeral session or a separate cookie storage, that session does not
-  get the mocked cookie, and the cookie stays in the shared storage. After you turn Map
-  Local off, a session that uses the shared storage can send the mocked cookie with real
-  requests.
+- `Set-Cookie` on a mocked response always goes into **`HTTPCookieStorage.shared`**, when
+  the request handles cookies (`httpShouldHandleCookies`, on by default). No public API
+  lets Map Local write to a session's own storage, and a session's own opt-outs are
+  invisible to it: a session with `httpShouldSetCookies = false`, a `.never` policy, or
+  its own or an ephemeral storage still gets the mocked cookie written to the shared
+  storage, and that session does not read it. [Mocked cookies](#mocked-cookies) describes
+  how Map Local undoes these writes.
 - Map Local can hide changes to the server's API contract. Use other tools to check the
   contract.

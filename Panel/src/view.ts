@@ -377,7 +377,7 @@ export class View {
     // away under the pointer.
     document.addEventListener("click", (e) => {
       if (!this.hostsOpen || !(e.target instanceof Element)) return;
-      if (e.target.closest('[data-group="allowed-hosts"], [data-field="hosts-toggle"], .necto-dialog')) return;
+      if (e.target.closest('[data-group="allowed-hosts"], [data-field="hosts-toggle"], .ml-dialog-layer')) return;
       this.hostsOpen = false;
       this.render();
     });
@@ -658,6 +658,10 @@ export class View {
           ),
         ),
       );
+    const toggleLabel =
+      configuration.allowedHosts.length === 0
+        ? t("No allowed hosts — add one")
+        : t("Allowed hosts {count}", { count: String(configuration.allowedHosts.length) });
     // What is in effect now leads on the left; sharing the configuration, used now and then,
     // sits quietly at the far right.
     return h(
@@ -678,7 +682,14 @@ export class View {
             if (!on) this.confirmOn = false;
             this.askFirst(
               !on && this.sessionAtRisk(),
-              t("Log out in the app before you turn off Map Local. If a mocked token reaches the real server, a 401 can force a logout."),
+              [
+                t("Log out in the app before you turn off Map Local. If a mocked token reaches the real server, a 401 can force a logout."),
+                (this.model.state!.mockedCookies ?? 0) > 0
+                  ? t("Mocked cookies are set aside until you turn Map Local on again.")
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" "),
               t("Turn off"),
               () => {
                 this.endUndo();
@@ -694,11 +705,17 @@ export class View {
             type: "button",
             class: "necto-button-quiet ml-hosts-toggle",
             "data-field": "hosts-toggle",
+            // Folded, the empty-list hint is out of sight, so the button says it instead.
+            "data-empty": configuration.allowedHosts.length === 0 ? "" : undefined,
+            // The arrow is drawn in CSS; the name is the words alone.
+            "aria-label": toggleLabel,
             "aria-expanded": String(this.hostsOpen),
             "aria-controls": "ml-allowed-hosts",
             onclick: () => this.showHosts(!this.hostsOpen),
+            onkeydown: (e) => this.hostsEscape(e as KeyboardEvent),
+            onfocusout: () => this.closeHostsIfFocusLeft(),
           },
-          t("Allowed hosts {count}", { count: String(configuration.allowedHosts.length) }),
+          toggleLabel,
         ),
         h(
           "span",
@@ -706,12 +723,8 @@ export class View {
             class: "ml-host-group",
             id: "ml-allowed-hosts",
             "data-group": "allowed-hosts",
-            onkeydown: (e) => {
-              const key = e as KeyboardEvent;
-              if (key.key !== "Escape" || !this.hostsOpen || key.isComposing) return;
-              key.preventDefault();
-              this.showHosts(false);
-            },
+            onkeydown: (e) => this.hostsEscape(e as KeyboardEvent),
+            onfocusout: () => this.closeHostsIfFocusLeft(),
           },
           h("span", { class: "necto-caption", title: t("Only requests to these hosts can be mocked or blocked. The rest always go to the real server") }, t("Allowed hosts")),
           ...hosts,
@@ -781,6 +794,34 @@ export class View {
         ),
       ),
     );
+  }
+
+  /// Whether the hosts are folded behind their button, which only a narrow panel shows.
+  private hostsFolded(): boolean {
+    const toggle = this.root.querySelector<HTMLElement>('[data-field="hosts-toggle"]');
+    return !!toggle && getComputedStyle(toggle).display !== "none";
+  }
+
+  /// Escape closes the open hosts, from the field or their button. Left alone while composing,
+  /// and in a wide panel, where the hosts aren't folded and Escape belongs to the rules.
+  private hostsEscape(key: KeyboardEvent) {
+    if (key.key !== "Escape" || !this.hostsOpen || key.isComposing || !this.hostsFolded()) return;
+    key.preventDefault();
+    this.showHosts(false);
+  }
+
+  /// Closes the hosts once focus has moved somewhere else, so they never cover what has it.
+  /// Checked after the event, when focus has landed. A dialog they opened keeps them, and so
+  /// does focus dropping to the page while a redraw replaces the control that had it.
+  private closeHostsIfFocusLeft() {
+    setTimeout(() => {
+      if (!this.hostsOpen || this.dialog) return;
+      const now = document.activeElement;
+      if (!now || now === document.body) return;
+      if (now.closest('[data-group="allowed-hosts"], [data-field="hosts-toggle"]')) return;
+      this.hostsOpen = false;
+      this.render();
+    }, 0);
   }
 
   /// Opens the allowed hosts over the content, with focus in the host field, or closes them
@@ -966,12 +1007,35 @@ export class View {
             t("I've logged out"),
           ),
         ),
+      ((state.mockedCookies ?? 0) > 0 || (state.setAsideCookies ?? 0) > 0) &&
+        h(
+          "div",
+          { class: "necto-notice", "data-notice": "mocked-cookies" },
+          (state.mockedCookies ?? 0) > 0
+            ? t("Mocked cookies in use: {count}", { count: String(state.mockedCookies) })
+            : t("Mocked cookies set aside until Map Local is on: {count}", {
+                count: String(state.setAsideCookies),
+              }),
+          " ",
+          h(
+            "button",
+            {
+              class: "necto-button",
+              "data-field": "discard-cookies",
+              tabindex: "0",
+              onclick: () => void this.model.discardCookies(),
+            },
+            t("Discard mocked cookies"),
+          ),
+        ),
       failure &&
         !failure.ok &&
         h(
           "div",
           { class: "necto-notice necto-notice-danger" },
-          t("Couldn't save ({reason}): {message}", { reason: failure.reason, message: translate(failure) }),
+          this.model.failedDuring === "discard"
+            ? t("Couldn't discard mocked cookies ({reason}): {message}", { reason: failure.reason, message: translate(failure) })
+            : t("Couldn't save ({reason}): {message}", { reason: failure.reason, message: translate(failure) }),
         ),
       this.model.conflict &&
         h(
@@ -1678,7 +1742,8 @@ export class View {
                   this.removeResponse(name);
                 },
               },
-              name,
+              // A long name is cut short to keep the tabs readable; hovering shows all of it.
+              h("span", { class: "ml-tab-name", title: name }, name),
               h("span", { class: "ml-tab-meta" }, responseSummary(rule.responses[name] ?? {})),
               ),
               // Each tab deletes itself, so a response the app doesn't get goes without first

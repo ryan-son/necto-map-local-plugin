@@ -3,7 +3,15 @@
 //
 
 import { hasErrorCode, necto } from "@necto/bridge";
-import type { Configuration, EngineState, NetworkDetail, NetworkSummary, RequestEvent, WriteResult } from "./types";
+import type {
+  Configuration,
+  CookieRestoreResult,
+  EngineState,
+  NetworkDetail,
+  NetworkSummary,
+  RequestEvent,
+  WriteResult,
+} from "./types";
 
 export type WriteOp =
   | "maplocal.configuration.replace"
@@ -18,6 +26,8 @@ export interface MapLocalAPI {
   state(): Promise<EngineState>;
   write(op: WriteOp, input: Record<string, unknown>): Promise<WriteResult>;
   exportConfiguration(): Promise<Configuration>;
+  /// Discards mocked cookies and brings the real ones back.
+  restoreCookies(): Promise<CookieRestoreResult>;
   observeState(on: (state: EngineState) => void, onError: (error: unknown) => void): Promise<Unsubscribe>;
   observeRequests(on: (event: RequestEvent) => void, onError: (error: unknown) => void): Promise<Unsubscribe>;
   requestsList(): Promise<{ events: RequestEvent[]; lastSeq: number }>;
@@ -37,6 +47,7 @@ export function bridgeAPI(): MapLocalAPI {
     write: (op, input) => necto.device.send<WriteResult>(op, input as BridgeInput),
     exportConfiguration: async () =>
       (await necto.device.send<{ configuration: Configuration }>("maplocal.configuration.export")).configuration,
+    restoreCookies: () => necto.device.send<CookieRestoreResult>("maplocal.cookies.restore", {}),
     async observeState(on, onError) {
       const subscription = await necto.device.subscribe<EngineState>("maplocal.state.observe", {}, on, onError);
       return () => subscription.unsubscribe();

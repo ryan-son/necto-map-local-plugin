@@ -278,5 +278,101 @@ struct EngineTests {
         #expect(recent.lastSeq == 510)
         #expect(recent.events.first?.path == "/509")
     }
+
+    static let cookieURL = URL(string: "https://maplocal.invalid/a")!
+    static func cookies(_ header: String) -> [HTTPCookie] {
+        HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": header], for: cookieURL)
+    }
+
+    @Test("a mocked cookie shows in the state count")
+    func cookieCount() {
+        let engine = MapLocalEngine(store: MemoryConfigurationStore(), blockedHosts: [], cookieJar: StorageCookieJar.isolated())
+        engine.writeMockedCookies(Self.cookies("sid=M; Path=/"), for: Self.cookieURL, mainDocumentURL: nil)
+        #expect(engine.state.mockedCookies == 1)
+    }
+
+    @Test("every write that turns Map Local off sets cookies aside, and turning it on puts them back",
+          arguments: ["patch", "replace", "force"])
+    func switchMovesCookies(kind: String) throws {
+        let jar = StorageCookieJar.isolated()
+        let engine = MapLocalEngine(store: MemoryConfigurationStore(), blockedHosts: [], cookieJar: jar)
+        engine.writeMockedCookies(Self.cookies("sid=M; Path=/"), for: Self.cookieURL, mainDocumentURL: nil)
+        func set(_ enabled: Bool) throws {
+            let revision = engine.state.configuration.revision
+            switch kind {
+            case "patch": try engine.apply(.patch(enabled: enabled, allowedHosts: nil, unmatched: nil, order: nil), baseRevision: revision)
+            case "replace": try engine.apply(.replace(Configuration(enabled: enabled)), baseRevision: revision)
+            default: try engine.applyForcing(.replace(Configuration(enabled: enabled)))
+            }
+        }
+        try set(false)
+        #expect(engine.state.mockedCookies == 0)
+        #expect(engine.state.setAsideCookies == 1)
+        #expect(engine.state.lastCookieChange?.trigger == .turnedOff)
+        try set(true)
+        #expect(engine.state.mockedCookies == 1)
+        #expect(engine.state.lastCookieChange?.trigger == .turnedOn)
+    }
+
+    @Test("a write that keeps Map Local on changes no cookie")
+    func keepOnLeavesCookies() throws {
+        let jar = StorageCookieJar.isolated()
+        let engine = MapLocalEngine(store: MemoryConfigurationStore(), blockedHosts: [], cookieJar: jar)
+        engine.writeMockedCookies(Self.cookies("sid=M; Path=/"), for: Self.cookieURL, mainDocumentURL: nil)
+        try engine.apply(.patch(enabled: nil, allowedHosts: [], unmatched: nil, order: nil), baseRevision: 0)
+        #expect(engine.state.mockedCookies == 1)
+        #expect(jar.cookie(CookieKey(domain: "maplocal.invalid", path: "/", name: "sid"))?.value == "M")
+    }
+
+    @Test("a failing cookie save never fails the configuration write; it becomes an issue")
+    func cookieFailureIsAnIssue() throws {
+        let store = MemoryConfigurationStore()
+        let engine = MapLocalEngine(store: store, blockedHosts: [], cookieJar: StorageCookieJar.isolated())
+        engine.writeMockedCookies(Self.cookies("sid=M; Path=/"), for: Self.cookieURL, mainDocumentURL: nil)
+        store.failSavingJournal()
+        try engine.apply(.patch(enabled: false, allowedHosts: nil, unmatched: nil, order: nil), baseRevision: 0)
+        #expect(engine.state.configuration.enabled == false)
+        #expect(engine.state.issues.map(\.code).contains(.cookieJournalSaveFailed))
+    }
+
+    @Test("a launch with Map Local off sets cookies aside before anything else runs")
+    func launchOff() {
+        let jar = StorageCookieJar.isolated()
+        let store = MemoryConfigurationStore(Configuration(enabled: false))
+        MapLocalEngine(store: store, blockedHosts: [], cookieJar: jar)
+            .writeMockedCookies(Self.cookies("sid=M; Path=/; Max-Age=3600"), for: Self.cookieURL, mainDocumentURL: nil)
+        let relaunched = MapLocalEngine(store: store, blockedHosts: [], cookieJar: jar)
+        #expect(relaunched.state.setAsideCookies == 1)
+        #expect(relaunched.state.lastCookieChange?.trigger == .launch)
+        #expect(jar.cookie(CookieKey(domain: "maplocal.invalid", path: "/", name: "sid")) == nil)
+    }
+
+    @Test("a corrupt configuration launches as on, so cookies are not set aside")
+    func corruptConfigurationLaunchesOn() {
+        #expect(Configuration.empty.enabled)
+    }
+
+    @Test("an explicit restore empties the counts and is reported")
+    func explicitRestore() throws {
+        let engine = MapLocalEngine(store: MemoryConfigurationStore(), blockedHosts: [], cookieJar: StorageCookieJar.isolated())
+        engine.writeMockedCookies(Self.cookies("sid=M; Path=/"), for: Self.cookieURL, mainDocumentURL: nil)
+        let change = try engine.restoreMockedCookies(scope: .all)
+        #expect(change.count(.deleted) == 1)
+        #expect(engine.state.mockedCookies == 0)
+        #expect(engine.state.lastCookieChange?.trigger == .explicit)
+    }
+
+    @Test("turning on and off from many threads leaves cookies matching the final switch", arguments: 0..<20)
+    func toggleStorm(seed: Int) throws {
+        let jar = StorageCookieJar.isolated()
+        let engine = MapLocalEngine(store: MemoryConfigurationStore(), blockedHosts: [], cookieJar: jar)
+        let url = URL(string: "https://maplocal.invalid/a")!
+        engine.writeMockedCookies(HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "sid=M; Path=/"], for: url), for: url, mainDocumentURL: nil)
+        DispatchQueue.concurrentPerform(iterations: 64) { i in
+            _ = try? engine.applyForcing(.patch(enabled: i.isMultiple(of: 2), allowedHosts: nil, unmatched: nil, order: nil))
+        }
+        let value = jar.cookie(CookieKey(domain: "maplocal.invalid", path: "/", name: "sid"))?.value
+        if engine.state.configuration.enabled { #expect(value == "M") } else { #expect(value == nil) }
+    }
 }
 #endif
