@@ -5796,6 +5796,8 @@ describe("mocked cookies notice", () => {
     click($(root, '[data-field="discard-cookies"]'));
     await flush();
     expect(model.lastFailure?.ok).toBe(false);
+    // It says what failed: a discard, not a save.
+    expect($(root, ".necto-notice-danger").textContent).toMatch(/^목업 쿠키를 버리지 못했습니다\(/);
     click($(root, '[data-field="discard-cookies"]'));
     await flush();
     expect(model.lastFailure).toBeUndefined();

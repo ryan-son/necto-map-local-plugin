@@ -978,8 +978,8 @@ export class View {
           "div",
           { class: "necto-notice", "data-notice": "mocked-cookies" },
           (state.mockedCookies ?? 0) > 0
-            ? t("{count} mocked cookies in use", { count: String(state.mockedCookies) })
-            : t("{count} mocked cookies set aside; they return when Map Local is on", {
+            ? t("Mocked cookies in use: {count}", { count: String(state.mockedCookies) })
+            : t("Mocked cookies set aside until Map Local is on: {count}", {
                 count: String(state.setAsideCookies),
               }),
           " ",
@@ -999,7 +999,9 @@ export class View {
         h(
           "div",
           { class: "necto-notice necto-notice-danger" },
-          t("Couldn't save ({reason}): {message}", { reason: failure.reason, message: translate(failure) }),
+          this.model.failedDuring === "discard"
+            ? t("Couldn't discard mocked cookies ({reason}): {message}", { reason: failure.reason, message: translate(failure) })
+            : t("Couldn't save ({reason}): {message}", { reason: failure.reason, message: translate(failure) }),
         ),
       this.model.conflict &&
         h(

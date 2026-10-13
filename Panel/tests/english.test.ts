@@ -127,3 +127,13 @@ test("in English, the paste dialog and the undo notice after a delete read in En
   expect($(root, '[data-notice="undo"]').textContent).toContain("Deleted the rule");
   expect(korean(root)).toEqual([]);
 });
+
+test("in English, the mocked cookies notice reads right for one cookie as for many", () => {
+  const api = new FakeAPI();
+  api.current = { ...engineState(), mockedCookies: 1, setAsideCookies: 0 };
+  expect($(mount(api).root, '[data-notice="mocked-cookies"]').textContent).toContain("Mocked cookies in use: 1");
+  api.current = { ...engineState(), mockedCookies: 0, setAsideCookies: 1 };
+  expect($(mount(api).root, '[data-notice="mocked-cookies"]').textContent).toContain(
+    "Mocked cookies set aside until Map Local is on: 1",
+  );
+});

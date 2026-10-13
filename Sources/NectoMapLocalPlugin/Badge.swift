@@ -71,6 +71,12 @@ struct BadgeSheet: Equatable {
                 : "Log out in the app before you turn off Map Local. If a mocked token reaches the real server, a 401 can force a logout."
             message = guidance + "\n\n" + message
         }
+        // The same sentence the panel adds to its turn-off confirmation.
+        if state.mockedCookies > 0 {
+            message += "\n\n" + (korean
+                ? "목업 쿠키는 Map Local을 다시 켤 때까지 보류됩니다."
+                : "Mocked cookies are set aside until you turn Map Local on again.")
+        }
         return BadgeSheet(
             title: "Map Local",
             message: message,

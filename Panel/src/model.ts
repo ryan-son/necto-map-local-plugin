@@ -16,6 +16,8 @@ export class PanelModel {
   state?: EngineState;
   requests: RequestEvent[] = [];
   lastFailure?: WriteResult;
+  /// What lastFailure came from, so the banner says a discard failed rather than a save.
+  failedDuring?: "save" | "discard";
   conflict = false;
   private known = 0;
   private inflight: Promise<unknown> = Promise.resolve();
@@ -66,6 +68,7 @@ export class PanelModel {
     } catch (error: unknown) {
       const failure = failureFrom(error, this.known);
       this.lastFailure = failure;
+      this.failedDuring = "discard";
       this.changed("write");
       return failure;
     }
@@ -91,6 +94,7 @@ export class PanelModel {
     const result = this.writer.submit(op, input).catch((error: unknown): WriteResult => {
       const failure = failureFrom(error, this.known);
       this.lastFailure = failure;
+      this.failedDuring = "save";
       // Not a conflict, so a conflict notice left by earlier writes no longer holds.
       this.conflict = false;
       this.changed("write");
@@ -111,6 +115,7 @@ export class PanelModel {
         this.lastFailure?.ok === false &&
         this.lastFailure.reason === "conflict";
       this.lastFailure = result;
+      this.failedDuring = "save";
     }
     this.changed("write");
   }

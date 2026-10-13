@@ -48,13 +48,14 @@ export const ko: Record<string, string> = {
   "A mocked login session may remain in the app. Log out in the app before you turn off or delete an auth rule.":
     "목업 로그인 세션이 앱에 남아 있을 수 있습니다. 인증 규칙을 끄거나 지우기 전에 앱에서 로그아웃하세요.",
   "I've logged out": "로그아웃했습니다",
-  "{count} mocked cookies in use": "목업 쿠키 {count}개 사용 중",
-  "{count} mocked cookies set aside; they return when Map Local is on":
+  "Mocked cookies in use: {count}": "목업 쿠키 {count}개 사용 중",
+  "Mocked cookies set aside until Map Local is on: {count}":
     "목업 쿠키 {count}개를 보류했습니다. Map Local을 켜면 돌아옵니다",
   "Discard mocked cookies": "목업 쿠키 버리기",
   "Mocked cookies are set aside until you turn Map Local on again.":
     "목업 쿠키는 Map Local을 다시 켤 때까지 보류됩니다.",
   "Couldn't save ({reason}): {message}": "저장하지 못했습니다({reason}): {message}",
+  "Couldn't discard mocked cookies ({reason}): {message}": "목업 쿠키를 버리지 못했습니다({reason}): {message}",
   "It keeps changing elsewhere. Check what just arrived": "다른 곳에서 계속 바뀌고 있습니다. 새로 받은 내용을 확인하세요",
   Undo: "되돌리기",
   Close: "닫기",

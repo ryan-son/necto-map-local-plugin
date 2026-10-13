@@ -207,7 +207,9 @@ A `Set-Cookie` in a mocked response goes into `HTTPCookieStorage.shared`, and Ma
 remembers what was there before.
 
 - **Turning Map Local off** sets the mocked cookies aside and puts the real ones back, so
-  the app's requests carry only real cookies while it is off.
+  the app's requests carry only real cookies while it is off. When the panel asks you to
+  confirm turning off, and in the app's badge sheet, it says so while mocked cookies are
+  in use.
 - **Turning it on** puts the set-aside cookies back, unless the real cookie changed or the
   mocked one expired meanwhile. Then the real cookie stays.
 - **"Discard mocked cookies"** in the panel, or `maplocal.cookies.restore` from the CLI,
