@@ -67,7 +67,7 @@ final class MapLocalURLProtocol: URLProtocol {
             } catch {
                 return
             }
-            relay.deliver(response, url: url, request: request)
+            relay.deliver(response, url: url, request: request, engine: engine)
         }
     }
 
@@ -137,7 +137,7 @@ final class ClientRelay: @unchecked Sendable {
 
     func stop() { lock.withLock { target = nil } }
 
-    func deliver(_ response: ResolvedResponse, url: URL, request: URLRequest) {
+    func deliver(_ response: ResolvedResponse, url: URL, request: URLRequest, engine: MapLocalEngine) {
         CFRunLoopPerformBlock(runLoop, mode.rawValue) { [self] in
             guard let (urlProtocol, client) = lock.withLock({ target }) else { return }
             if let code = response.errorCode {
@@ -168,7 +168,7 @@ final class ClientRelay: @unchecked Sendable {
                 }
                 let cookies = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
                 if !cookies.isEmpty {
-                    HTTPCookieStorage.shared.setCookies(cookies, for: url, mainDocumentURL: request.mainDocumentURL)
+                    engine.writeMockedCookies(cookies, for: url, mainDocumentURL: request.mainDocumentURL)
                 }
             }
             client.urlProtocol(urlProtocol, didReceive: http, cacheStoragePolicy: .notAllowed)
