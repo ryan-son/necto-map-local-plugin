@@ -106,6 +106,9 @@ select {
   align-items: center;
 }
 
+/* Only the allowed hosts take the spare room, where the empty-list hint can use it. */
+.ml-host-group[data-group="blocked-hosts"] { flex: none; }
+
 /*
  * Nothing in the first row gives up its width, so the row scrolls instead. Squeezed, a Korean
  * label breaks between any two syllables and stacks one per line, and the host field, which
@@ -137,6 +140,7 @@ select {
 
 /* Stands in for the allowed hosts only in a narrow panel (see the narrow layout below). */
 .ml-hosts-toggle { display: none; }
+.ml-hosts-toggle[data-empty] { color: var(--necto-warning); }
 .ml-hosts-toggle::after { content: "▾"; margin-left: var(--necto-space-1); }
 
 /* Takes only the room left over, so it never widens or wraps the first row. */
