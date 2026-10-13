@@ -141,6 +141,7 @@ select {
 /* Stands in for the allowed hosts only in a narrow panel (see the narrow layout below). */
 .ml-hosts-toggle { display: none; }
 .ml-hosts-toggle[data-empty] { color: var(--necto-warning); }
+[data-field="hosts-caption"][data-empty] { color: var(--necto-warning); }
 .ml-hosts-toggle::after { content: "▾"; margin-left: var(--necto-space-1); }
 
 /* Takes only the room left over, so it never widens or wraps the first row. */
