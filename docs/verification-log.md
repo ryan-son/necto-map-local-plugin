@@ -58,7 +58,66 @@ hesitated.>
 <Each check above that was not run, and why.>
 ```
 
-## Unreleased: mocked cookie journal — 2026-10-12
+## 0.2.0 — not tagged yet
+
+Build: the release candidate, once the release prep is merged · Necto 0.2.0 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
+Targets: iOS simulator (iPhone 18 Pro, iOS 27.0) · device: to be decided
+
+Every row below must be filled on the release candidate before the tag. 0.2.0 adds the
+mocked cookie journal (#4), the narrow header and its follow-ups (#3, #5, #7), and wrapping
+response tabs (#6). The cookie journal was measured on its archive build (the next entry);
+its rows are rerun here because the commits after the restack were never run in Necto. The
+panel changes were checked only in jsdom and in WebKit outside Necto, which keeps Esc for
+itself.
+
+### Automated
+
+| Check | Result |
+| --- | --- |
+| `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 at the release prep |
+| `swift test` | 89 + 131 tests |
+| `cd Panel && npx vitest run` | 1143 tests |
+| Release workflow on GitHub (tag check, CI, assets) | not run yet: runs on the tag |
+
+### In Necto
+
+| Check | Result | Build | Notes |
+| --- | --- | --- | --- |
+| App connected over USB on a device, not only the simulator | not verified yet | | |
+| The panel rendered data that started in the app (rules, traffic) | not verified yet | | |
+| A mock applied from the next request, with no relaunch | not verified yet | | |
+| Disconnect fails pending calls instead of hanging | not verified yet | | |
+| Reconnect (relaunch the app) without restarting Necto | not verified yet | | |
+| Light appearance | not verified yet | | |
+| Dark appearance | not verified yet | | |
+| Light/dark switch with the panel open, without reloading | not verified yet | | |
+| Default text size | not verified yet | | |
+| Larger text size (Necto's zoom) | not verified yet | | |
+| Narrow panel (under 640 px): stacked list and detail, both tabs | not verified yet | | |
+| Wide panel (over 1100 px) | not verified yet | | |
+| English (Necto language setting) | not verified yet | | |
+| Korean | not verified yet | | |
+| Device badge text follows the device language | not verified yet | | |
+| CLI: `plugin list`, `plugin help`, a write and a refused write | not verified yet | | |
+| With and without Necto's network plugin registered | not verified yet | | |
+| Narrow panel: the hosts button opens and closes the hosts (click outside, focus leaving, Esc if Necto passes it) | not verified yet | | Esc was measured only in WebKit outside Necto |
+| No allowed host: the warning on the button (narrow) and in the caption (wider) | not verified yet | | |
+| Ten responses and a long name: tabs wrap, the editor never scrolls sideways | not verified yet | | |
+| An undo toast stays above the open hosts in a short panel | not verified yet | | |
+| Mocked cookie rows of the next entry, rerun through `necto-cli` | not verified yet | | |
+| The panel's cookie notice, discard, and failed-discard banner | not verified yet | | Seen only with a patched dev mock |
+| The log-out confirmation's cookie sentence | not verified yet | | |
+| The badge sheet's mocked cookie sentence | not verified yet | | Covered by `BadgeControlTests` only |
+
+### Simulation results
+
+Not run yet.
+
+### Not verified
+
+To be filled with what is still not verified at the tag, and why.
+
+## 0.2.0: mocked cookie journal, on the archive build — 2026-10-12
 
 Build: 0ea31ac (branch `feature/mocked-cookie-journal`) · Necto 0.2.0 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
 Targets: iOS simulator (iPhone 18 Pro, iOS 27.0) · device: none
@@ -104,7 +163,7 @@ see the pull request for the counts at its head.
 | recipes.md "Run a QA scenario from an agent", followed as written on a fresh install | pass | 3b0f036 | The copied `configuration.json` applied from the first, pre-attach request; `earlierLaunches` kept that launch's cookie; the end check read `mockedCookies` 0 and `authMocked` false. `simctl terminate` exits nonzero when the app is not running, so the recipe adds `|| true` |
 | The badge sheet's mocked cookie sentence | not verified | | Covered by `BadgeControlTests` only; the sheet was not opened with a mocked cookie in use |
 
-## 0.1.0 — not tagged yet
+## 0.1.0 — 2026-10-05
 
 Build: 7133677 (branch `feature/traffic-tab`) for the automated checks. The checks in Necto
 ran on earlier builds of this branch, named per row, and were rerun on 4897c81 in the new
