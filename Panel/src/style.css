@@ -99,12 +99,23 @@ select {
  * blocked chip never lands beside the allowed hosts or the host field and reads as allowed.
  */
 .ml-host-group {
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   display: inline-flex;
   flex-wrap: nowrap;
   gap: var(--necto-space-2);
   align-items: center;
-  min-width: 0;
+}
+
+/*
+ * Nothing in the first row gives up its width, so the row scrolls instead. Squeezed, a Korean
+ * label breaks between any two syllables and stacks one per line, and the host field, which
+ * can't go below its min-width, spills over the candidate beside it.
+ */
+.ml-head-state > *,
+.ml-host-group > *,
+.ml-add-host > * {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ml-add-host {
@@ -116,6 +127,7 @@ select {
 }
 
 .ml-add-host .necto-field {
+  flex: none;
   width: 16ch;
   min-width: 10ch;
   max-width: 100%;
@@ -123,13 +135,18 @@ select {
 
 .ml-add-host-hint { color: var(--necto-text-secondary); }
 
-/* Shrinks first, so it never wraps the first row. */
+/* Stands in for the allowed hosts only in a narrow panel (see the narrow layout below). */
+.ml-hosts-toggle { display: none; }
+.ml-hosts-toggle::after { content: "▾"; margin-left: var(--necto-space-1); }
+
+/* Takes only the room left over, so it never widens or wraps the first row. */
 .ml-host-hint {
   flex: 1 1 0;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  contain: inline-size;
 }
 
 /* The response the app gets, whichever tab is open. */
@@ -746,6 +763,38 @@ select {
  * selected (detail closed) the list takes all the space.
  */
 @container ml-panel (max-width: 639px) {
+  /*
+   * The allowed hosts fold behind one button and open over the content, so the header keeps
+   * its two rows. Hosts blocked in app code stay in the row, which still scrolls if they
+   * don't fit.
+   */
+  .ml-head { position: relative; }
+  .ml-hosts-toggle { display: inline-flex; }
+  .ml-host-group[data-group="allowed-hosts"] { display: none; }
+
+  .ml-head[data-hosts-open] .ml-host-group[data-group="allowed-hosts"] {
+    display: flex;
+    flex-wrap: wrap;
+    position: absolute;
+    top: calc(100% + var(--necto-space-1));
+    left: var(--necto-space-3);
+    right: var(--necto-space-3);
+    z-index: 10;
+    max-height: 50vh;
+    overflow-y: auto;
+    padding: var(--necto-space-2);
+    border: 1px solid var(--necto-border);
+    border-radius: var(--necto-radius-control);
+    background: var(--necto-surface);
+  }
+
+  /* With the room of the panel, the hint for an empty list reads in full. */
+  .ml-head[data-hosts-open] .ml-host-hint {
+    flex-basis: 100%;
+    contain: none;
+    white-space: normal;
+  }
+
   .ml-split {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, var(--ml-stack-list, 2fr)) minmax(0, 3fr);

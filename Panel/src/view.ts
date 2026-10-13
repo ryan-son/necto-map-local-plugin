@@ -313,6 +313,9 @@ export class View {
   private editorWorking?: Working;
   /// The header's add-host field, held here so a render keeps its text and its hint.
   private hostDraft = "";
+  /// Whether the allowed hosts are open over the content. Only a narrow panel folds them
+  /// behind a button; wider, they sit in the header and this changes nothing.
+  private hostsOpen = false;
   private hostHint?: string;
   /// Renders that arrive mid-press wait for release, so the first click is not lost.
   private readonly press = new PressHold();
@@ -369,6 +372,15 @@ export class View {
       this.render();
     });
     document.addEventListener("keydown", (e) => this.rulesEscape(e));
+    // A click anywhere but the hosts, their button or a dialog they opened closes them. On
+    // click rather than pointerdown, so what was pressed acts first instead of being redrawn
+    // away under the pointer.
+    document.addEventListener("click", (e) => {
+      if (!this.hostsOpen || !(e.target instanceof Element)) return;
+      if (e.target.closest('[data-group="allowed-hosts"], [data-field="hosts-toggle"], .necto-dialog')) return;
+      this.hostsOpen = false;
+      this.render();
+    });
     document.addEventListener("keydown", (e) => this.undoKey(e));
     this.toastLayer = h("div", {
       class: "ml-toasts",
@@ -650,7 +662,7 @@ export class View {
     // sits quietly at the far right.
     return h(
       "div",
-      { class: "ml-head" },
+      { class: "ml-head", "data-hosts-open": this.hostsOpen ? "" : undefined },
       h(
         "div",
         { class: "necto-toolbar-group ml-head-state" },
@@ -677,8 +689,30 @@ export class View {
         }),
         h("span", { class: "ml-head-switch-label" }, configuration.enabled ? t("Map Local on") : t("Map Local off")),
         h(
+          "button",
+          {
+            type: "button",
+            class: "necto-button-quiet ml-hosts-toggle",
+            "data-field": "hosts-toggle",
+            "aria-expanded": String(this.hostsOpen),
+            "aria-controls": "ml-allowed-hosts",
+            onclick: () => this.showHosts(!this.hostsOpen),
+          },
+          t("Allowed hosts {count}", { count: String(configuration.allowedHosts.length) }),
+        ),
+        h(
           "span",
-          { class: "ml-host-group", "data-group": "allowed-hosts" },
+          {
+            class: "ml-host-group",
+            id: "ml-allowed-hosts",
+            "data-group": "allowed-hosts",
+            onkeydown: (e) => {
+              const key = e as KeyboardEvent;
+              if (key.key !== "Escape" || !this.hostsOpen || key.isComposing) return;
+              key.preventDefault();
+              this.showHosts(false);
+            },
+          },
           h("span", { class: "necto-caption", title: t("Only requests to these hosts can be mocked or blocked. The rest always go to the real server") }, t("Allowed hosts")),
           ...hosts,
           this.hostInput(),
@@ -747,6 +781,15 @@ export class View {
         ),
       ),
     );
+  }
+
+  /// Opens the allowed hosts over the content, with focus in the host field, or closes them
+  /// and hands focus back to their button.
+  private showHosts(open: boolean) {
+    this.hostsOpen = open;
+    this.render();
+    const target = open ? "add-host" : "hosts-toggle";
+    (this.root.querySelector(`[data-field="${target}"]`) as HTMLElement | null)?.focus();
   }
 
   /// Adds an allowed host by typing. A pasted URL is reduced to its host by the engine's
