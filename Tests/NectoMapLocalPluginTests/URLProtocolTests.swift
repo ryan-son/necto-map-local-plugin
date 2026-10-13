@@ -22,14 +22,15 @@ struct URLProtocolTests {
     func install(
         _ rules: [Rule],
         unmatched: Unmatched = .passthrough,
-        clock: any Clock<Duration> = ContinuousClock()
+        clock: any Clock<Duration> = ContinuousClock(),
+        jar: StorageCookieJar = .isolated()
     ) -> MapLocalEngine {
         let configuration = Configuration(
             allowedHosts: [Self.host],
             unmatched: unmatched,
             rules: rules.map(RuleEntry.rule)
         )
-        let engine = MapLocalEngine(store: MemoryConfigurationStore(configuration), blockedHosts: [], clock: clock)
+        let engine = MapLocalEngine(store: MemoryConfigurationStore(configuration), blockedHosts: [], clock: clock, cookieJar: jar)
         MapLocalRuntime.replace(engine)
         return engine
     }
@@ -285,21 +286,20 @@ struct URLProtocolTests {
     }
 
     @Test(
-        "a mocked Set-Cookie reaches the shared cookie storage whatever the case of the header name",
+        "a mocked Set-Cookie reaches the engine's cookie jar and journal whatever the case of the header name",
         arguments: ["Set-Cookie", "set-cookie"]
     )
     func storesCookies(header: String) async throws {
-        let name = "ml\(UUID().uuidString.prefix(8))"
-        _ = install([Self.rule(
-            "/k",
-            ["ok": ResponseSpec(status: 200, headers: [header: "\(name)=v; Path=/"])],
-            active: "ok"
-        )])
-        let url = URL(string: "https://\(Self.host)/k")!
-        _ = try await session().data(from: url)
-        let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
-        #expect(cookies.contains { $0.name == name })
-        cookies.filter { $0.name == name }.forEach(HTTPCookieStorage.shared.deleteCookie)
+        let jar = StorageCookieJar.isolated()
+        let name = "maplocal_\(UUID().uuidString.prefix(8))"
+        let engine = install(
+            [Self.rule("/c", ["ok": ResponseSpec(status: 200, headers: [header: "\(name)=v; Path=/"])], active: "ok")],
+            jar: jar
+        )
+        _ = try await session().data(from: URL(string: "https://\(Self.host)/c")!)
+        #expect(jar.cookie(CookieKey(domain: Self.host, path: "/", name: name))?.value == "v")
+        #expect(engine.state.mockedCookies == 1)
+        #expect(HTTPCookieStorage.shared.cookies?.contains { $0.name == name } != true)
     }
 }
 }

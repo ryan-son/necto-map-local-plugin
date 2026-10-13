@@ -215,6 +215,35 @@ badge's sheet asks the same way, with the same words (`Effects.sessionAtRisk` mi
   after mocking stops, and an unmocked request may send its fake token to the real
   server. The block mode above is the other half of this.
 
+**Mocked cookies are a layer: off sets them aside, on puts them back.**
+`CookieKeeper` journals each key a mock writes, with the real value before it, in
+`cookie-journal.json` beside the configuration (`Sources/MapLocalCore/CookieKeeper.swift`).
+- The engine performs the write itself, under the journal's lock, so a restore cannot
+  fall between a write's read and its store.
+- A custom `ConfigurationStore` must keep the journal too: the protocol gives its two
+  methods no default, so a store that forgets them does not compile. A default that kept
+  nothing would lose the journal on relaunch, and a discard after that could not bring the
+  real cookies back.
+- A restore compares the cookie in storage with what the mock left, instead of watching
+  real responses. Responses from sessions and hosts Map Local does not intercept never
+  reach it, and comparing finds every rewrite.
+- Off and on move cookies instead of deleting them, so a switch is undone by switching
+  back (experience.md principle 4), and nothing mocked reaches real requests while Map
+  Local is off (principle 10).
+- A launch with Map Local off sets cookies aside; a launch with it on keeps them, because
+  rules apply with or without Necto.
+- Restoring or reapplying deletes the key before storing: measured on macOS and iOS 27,
+  storage refuses to replace an `HttpOnly` cookie with one that is not.
+- An entry is saved *in flight* before the mock's write and cleared once the write is read
+  back, so a crash in between still lets a restore bring the real cookie back.
+- Restored entries are checked again at the next launch, because `HTTPCookieStorage`
+  saves lazily and a kill can lose the restore (measured). A restored mocked *deletion* is
+  not: an empty key after a kill looks the same as a real logout, and reviving a
+  logged-out cookie is worse than losing one.
+- The keeper's lock may take the engine's state lock, to read the switch while moving
+  cookies, so racing on and off writes end with cookies matching the last one. The state
+  lock never takes the keeper's.
+
 ## Keeping it out of release builds
 
 **Our code compiles only in debug.** Every Swift file in `Sources/` and `Tests/` is
@@ -428,6 +457,9 @@ nonzero: malformed input is `INVALID_INPUT`, a missing rule or response is
   `ContractTests` keeps the two equal.
 - Bindings are version 1. A change that breaks a caller ships under a new binding
   version; adding an optional input key or an output field does not.
+- `maplocal.cookies.restore` answers a journal it can't read with `OPERATION_UNAVAILABLE`
+  and a journal it can't save with `PROVIDER_FAILED`. A cookie failure caused by a
+  configuration write never fails that write; it becomes an issue in the state.
 
 ## Identity and dependencies
 

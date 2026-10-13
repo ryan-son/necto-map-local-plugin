@@ -124,6 +124,19 @@ struct BadgeControlTests {
         #expect(ko.cancel == "취소")
     }
 
+    @Test("with mocked cookies in use, the sheet says they are set aside until Map Local is on again")
+    func sheetCookies() throws {
+        let engine = Self.engine(Configuration(allowedHosts: ["a.invalid"], rules: [Self.rule("x")]))
+        var state = engine.state
+        state.mockedCookies = 2
+        let en = try #require(BadgeSheet.make(state, preferredLanguages: ["en-US"]))
+        #expect(en.message == "Mock rules applying: 1\nGET /x\n\nMocked cookies are set aside until you turn Map Local on again.")
+        let ko = try #require(BadgeSheet.make(state, preferredLanguages: ["ko-KR"]))
+        #expect(ko.message.hasSuffix("\n\n목업 쿠키는 Map Local을 다시 켤 때까지 보류됩니다."))
+        state.mockedCookies = 0
+        #expect(try #require(BadgeSheet.make(state, preferredLanguages: ["en-US"])).message == "Mock rules applying: 1\nGET /x")
+    }
+
     @Test("with a mocked session at risk, the sheet leads with the panel's sign-out guidance")
     func sheetGuidance() throws {
         let engine = Self.engine(

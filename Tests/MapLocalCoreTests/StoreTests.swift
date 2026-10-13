@@ -129,5 +129,52 @@ struct StoreTests {
         store.saveAuthMocked(false)
         #expect(store.loadAuthMocked() == false)
     }
+
+    func temporaryStore() -> FileConfigurationStore { FileConfigurationStore(directory: makeDirectory()) }
+
+    static func entry(_ name: String) -> CookieEntry {
+        let cookie = HTTPCookie(properties: [.name: name, .value: "M", .domain: "www.example.com", .path: "/"])!
+        return CookieEntry(key: CookieKey(cookie), before: nil, beforeLaunchID: "L1", written: .stored(CookieRecord(cookie)), launchID: "L1")
+    }
+
+    @Test("a missing journal loads empty, and a saved one loads back")
+    func journalRoundTrip() throws {
+        let store = temporaryStore()
+        #expect(store.loadCookieJournal() == .loaded(.empty))
+        let journal = CookieJournal(entries: [Self.entry("a")], pending: [Self.entry("b")])
+        try store.saveCookieJournal(journal)
+        #expect(store.loadCookieJournal() == .loaded(journal))
+    }
+
+    @Test("the journal file is excluded from backups")
+    func journalExcludedFromBackup() throws {
+        let store = temporaryStore()
+        try store.saveCookieJournal(CookieJournal(entries: [Self.entry("a")]))
+        let values = try store.journalFile.resourceValues(forKeys: [.isExcludedFromBackupKey])
+        #expect(values.isExcludedFromBackup == true)
+    }
+
+    @Test("a journal that is not valid JSON is deleted, not kept aside")
+    func invalidJournalDeleted() throws {
+        let store = temporaryStore()
+        try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
+        try Data("{".utf8).write(to: store.journalFile)
+        #expect(store.loadCookieJournal() == .invalid)
+        #expect(!FileManager.default.fileExists(atPath: store.journalFile.path(percentEncoded: false)))
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: store.directory.path(percentEncoded: false))
+        #expect(leftovers.isEmpty)
+    }
+
+    @Test("a journal that exists but cannot be read loads as unreadable and is left in place")
+    func unreadableJournal() throws {
+        let store = temporaryStore()
+        // A directory where the file should be cannot be read as data.
+        try FileManager.default.createDirectory(at: store.journalFile, withIntermediateDirectories: true)
+        guard case .unreadable = store.loadCookieJournal() else {
+            Issue.record("expected unreadable")
+            return
+        }
+        #expect(FileManager.default.fileExists(atPath: store.journalFile.path(percentEncoded: false)))
+    }
 }
 #endif

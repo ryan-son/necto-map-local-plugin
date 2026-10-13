@@ -23,6 +23,7 @@ Necto의 모든 패널이 그래요. 한 번 더 누르세요.
 - [설정 공유하기](#설정-공유하기)
 - [요청이 왜 목업되지 않았는지 알아보기](#요청이-왜-목업되지-않았는지-알아보기)
 - [목업 멈추기](#목업-멈추기)
+- [에이전트로 QA 시나리오 돌리기](#에이전트로-qa-시나리오-돌리기)
 
 ## 화면을 다른 데이터로 보기
 
@@ -166,3 +167,28 @@ Map Local은 요청을 실패하게 할 뿐, 기기가 알리는 네트워크 �
 
 규칙은 그대로 남아 있어 다음에 바로 쓸 수 있어요. Map Local을 다시 켜려면 패널이나
 `necto-cli`를 쓰세요([necto-cli 오퍼레이션](cli-ko.md#necto-cli-오퍼레이션)). 앱에서는 켤 수 없어요.
+
+## 에이전트로 QA 시나리오 돌리기
+
+에이전트는 `necto-cli`로 Map Local을 조작해요([necto-cli 오퍼레이션](cli-ko.md#necto-cli-오퍼레이션)).
+
+1. 앱을 띄우기 전에 앱을 멈추고 시나리오 규칙을 앱 컨테이너에 써요. 떠 있는 앱은 예전 규칙을
+   그대로 쓰다가 다음에 저장할 때 파일을 덮어쓰고, 폴더는 Map Local이 처음 저장하기 전까지
+   없어요. `scenario.json`은 설정, 즉 내보낸 파일의 `configuration` 객체예요.
+
+   ```bash
+   xcrun simctl terminate booted <bundle> || true  # 앱이 떠 있지 않으면 실패해요
+   container=$(xcrun simctl get_app_container booted <bundle> data)
+   mkdir -p "$container/Library/Application Support/NectoMapLocal"
+   cp scenario.json "$container/Library/Application Support/NectoMapLocal/configuration.json"
+   xcrun simctl launch booted <bundle>
+   ```
+
+2. Necto에 앱이 보이면 `maplocal.cookies.restore`에 `{"scope":"earlierLaunches"}`를 보내
+   이전 실행이 남긴 것을 정리해요. 그 전까지 앱의 첫 요청에는 이전 실행이 남긴 쿠키가 실릴 수
+   있으니, 모든 시나리오는 앱을 멈추기 전에 4단계로 끝내세요.
+3. 앱을 조작한 뒤 `maplocal.requests.list`와 `maplocal.cookies.list`로 확인해요.
+4. `maplocal.cookies.restore`로 끝내요. 인증 규칙을 썼다면 앱에서 로그아웃한 뒤
+   `maplocal.configuration.patch`에 `{"baseRevision":<maplocal.state의 revision>,"authMocked":false}`를
+   보내요. `maplocal.state`의 `mockedCookies`가 0이고 `authMocked`가 false면 깨끗하게 끝난
+   거예요.

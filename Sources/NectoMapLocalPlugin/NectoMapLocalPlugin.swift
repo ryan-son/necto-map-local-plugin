@@ -58,6 +58,15 @@ public struct NectoMapLocalPlugin: NectoPlugin {
     /// the plugin is created.
     public static var protocolClass: AnyClass { MapLocalURLProtocol.self }
 
+    /// Discards the cookies Map Local's mocks wrote and brings the real ones back.
+    ///
+    /// The same as `maplocal.cookies.restore`. Call it inside `#if DEBUG`.
+    @discardableResult
+    public static func restoreMockedCookies(scope: CookieScope = .all) throws -> CookieChange {
+        guard let engine = MapLocalRuntime.engine else { throw MapLocalMessage(.engineMissing) }
+        return try engine.restoreMockedCookies(scope: scope)
+    }
+
     public var panel: NectoPluginPanel? { PanelWriter.write().map(NectoPluginPanel.init(root:)) }
 
     public func register(_ necto: NectoRegistrar) {
@@ -136,6 +145,28 @@ public struct NectoMapLocalPlugin: NectoPlugin {
                 "events": .array(recent.events.map(encode)),
                 "lastSeq": .number(Double(recent.lastSeq)),
             ])
+        case .cookiesList:
+            return encode(engine.mockedCookieListing())
+        case .cookiesRestore:
+            let scope = json["scope"]?.stringValue.flatMap(CookieScope.init(rawValue:)) ?? .all
+            do {
+                return encode(try engine.restoreMockedCookies(scope: scope), state: engine.state)
+            } catch let message as MapLocalMessage {
+                throw rejection(.operationUnavailable, "unavailable", message, revision: revision())
+            } catch let failure as CookieSaveFailure {
+                let message = MapLocalMessage(.cookieJournalSaveFailed, ["error": failure.error])
+                guard case var .object(object) = message.json else { throw failure }
+                object["reason"] = .string("storage")
+                object["revision"] = .number(Double(revision()))
+                for action in [CookieEntryResult.Action.deleted, .restored, .skipped] {
+                    object[action.rawValue] = .number(Double(failure.change.count(action)))
+                }
+                throw NectoBridgeError(
+                    code: .providerFailed,
+                    message: message.text,
+                    details: (try? NectoJSONValue(encoding: JSONValue.object(object))) ?? .null
+                )
+            }
         default:
             break
         }
@@ -193,6 +224,9 @@ public struct NectoMapLocalPlugin: NectoPlugin {
                 throw MapLocalMessage(.outOfRange, ["key": "limit", "min": "1", "max": String(range.upperBound)])
             }
         }
+        if let scope = object["scope"], scope.stringValue.flatMap(CookieScope.init(rawValue:)) == nil {
+            throw MapLocalMessage(.mustBeOneOf, ["key": "scope", "choices": "all, earlierLaunches"])
+        }
         for key in ["id", "response"] {
             if let value = object[key], value.stringValue == nil {
                 throw MapLocalMessage(.mustBeString, ["key": key])
@@ -247,14 +281,14 @@ public struct NectoMapLocalPlugin: NectoPlugin {
                 throw ApplyError.invalid(MapLocalMessage(.required, ["key": "id"]))
             }
             return .setActive(ruleID: id, response: response)
-        case .state, .stateObserve, .requestsObserve, .requestsList, .configurationExport:
+        case .state, .stateObserve, .requestsObserve, .requestsList, .configurationExport, .cookiesRestore, .cookiesList:
             throw ApplyError.invalid(MapLocalMessage(.notWriteOperation))
         }
     }
 
     /// The full state, for editing. It goes over the loopback only to the Necto Mac app.
     static func encode(_ state: EngineState) -> NectoJSONValue {
-        let json: JSONValue = .object([
+        var object: [String: JSONValue] = [
             "revision": .number(Double(state.configuration.revision)),
             "configuration": ConfigurationCodec.encode(state.configuration),
             "readOnly": .bool(state.readOnly),
@@ -266,7 +300,57 @@ public struct NectoMapLocalPlugin: NectoPlugin {
             "blockedHosts": .array(state.blockedHosts.map(JSONValue.string)),
             "authMocked": .bool(state.mayHoldMockedSession),
             "launchID": .string(state.launchID),
+        ]
+        object["mockedCookies"] = .number(Double(state.mockedCookies))
+        object["setAsideCookies"] = .number(Double(state.setAsideCookies))
+        if let change = state.lastCookieChange { object["lastCookieChange"] = encodeSummary(change) }
+        return (try? NectoJSONValue(encoding: JSONValue.object(object))) ?? .null
+    }
+
+    static func encodeSummary(_ change: CookieChange) -> JSONValue {
+        var object: [String: JSONValue] = [
+            "trigger": .string(change.trigger.rawValue),
+            "date": .number((change.date.timeIntervalSince1970 * 1000).rounded()),
+        ]
+        for action in [CookieEntryResult.Action.deleted, .restored, .skipped, .reapplied, .dropped] {
+            object[action.rawValue] = .number(Double(change.count(action)))
+        }
+        return .object(object)
+    }
+
+    /// The answer to `maplocal.cookies.restore`. Keys only, never values.
+    static func encode(_ change: CookieChange, state: EngineState) -> NectoJSONValue {
+        let json: JSONValue = .object([
+            "ok": .bool(true),
+            "revision": .number(Double(state.configuration.revision)),
+            "mockedCookies": .number(Double(state.mockedCookies)),
+            "setAsideCookies": .number(Double(state.setAsideCookies)),
+            "deleted": .number(Double(change.count(.deleted))),
+            "restored": .number(Double(change.count(.restored))),
+            "skipped": .number(Double(change.count(.skipped))),
+            "entries": .array(change.results.map { result in
+                .object([
+                    "domain": .string(result.key.domain),
+                    "path": .string(result.key.path),
+                    "name": .string(result.key.name),
+                    "action": .string(result.action.rawValue),
+                ])
+            }),
         ])
+        return (try? NectoJSONValue(encoding: json)) ?? .null
+    }
+
+    /// The answer to `maplocal.cookies.list`. Keys only, never values.
+    static func encode(_ listing: [CookieListing]) -> NectoJSONValue {
+        let json: JSONValue = .object(["entries": .array(listing.map { item in
+            .object([
+                "domain": .string(item.key.domain),
+                "path": .string(item.key.path),
+                "name": .string(item.key.name),
+                "layer": .string(item.layer.rawValue),
+                "launch": .string(item.isCurrentLaunch ? "current" : "earlier"),
+            ])
+        })])
         return (try? NectoJSONValue(encoding: json)) ?? .null
     }
 

@@ -23,6 +23,7 @@ window forward, in every Necto panel. Click again.
 - [Share a configuration](#share-a-configuration)
 - [Find out why a request wasn't mocked](#find-out-why-a-request-wasnt-mocked)
 - [Stop mocking](#stop-mocking)
+- [Run a QA scenario from an agent](#run-a-qa-scenario-from-an-agent)
 
 ## See a screen with different data
 
@@ -174,3 +175,29 @@ reason with its fix, and what to check when no rule matches at all.
 
 Rules stay as they are, ready for next time. To turn Map Local back on, use the panel or
 `necto-cli` ([necto-cli operations](cli.md#necto-cli-operations)). The app can't do it.
+
+## Run a QA scenario from an agent
+
+An agent drives Map Local through `necto-cli` ([necto-cli operations](cli.md#necto-cli-operations)).
+
+1. Before launch, stop the app and write the scenario's rules into its container. A
+   running app keeps its old rules and overwrites the file on its next write, and the
+   folder does not exist until Map Local first saves. `scenario.json` is a configuration:
+   the `configuration` object of an export.
+
+   ```bash
+   xcrun simctl terminate booted <bundle> || true  # fails when the app is not running
+   container=$(xcrun simctl get_app_container booted <bundle> data)
+   mkdir -p "$container/Library/Application Support/NectoMapLocal"
+   cp scenario.json "$container/Library/Application Support/NectoMapLocal/configuration.json"
+   xcrun simctl launch booted <bundle>
+   ```
+
+2. Once Necto lists the app, clear what earlier runs left with `maplocal.cookies.restore`
+   and `{"scope":"earlierLaunches"}`. Until then, the app's first requests may still carry
+   cookies an earlier run left, so end every scenario with step 4 before stopping the app.
+3. Act in the app, then check `maplocal.requests.list` and `maplocal.cookies.list`.
+4. End with `maplocal.cookies.restore`. If the scenario used an auth rule, log out in the
+   app, then send `maplocal.configuration.patch` with `{"baseRevision":<revision from
+   maplocal.state>,"authMocked":false}`. The scenario ended clean when `maplocal.state` has
+   `mockedCookies` 0 and `authMocked` false.

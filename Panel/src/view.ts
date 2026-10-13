@@ -682,7 +682,14 @@ export class View {
             if (!on) this.confirmOn = false;
             this.askFirst(
               !on && this.sessionAtRisk(),
-              t("Log out in the app before you turn off Map Local. If a mocked token reaches the real server, a 401 can force a logout."),
+              [
+                t("Log out in the app before you turn off Map Local. If a mocked token reaches the real server, a 401 can force a logout."),
+                (this.model.state!.mockedCookies ?? 0) > 0
+                  ? t("Mocked cookies are set aside until you turn Map Local on again.")
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" "),
               t("Turn off"),
               () => {
                 this.endUndo();
@@ -1000,12 +1007,35 @@ export class View {
             t("I've logged out"),
           ),
         ),
+      ((state.mockedCookies ?? 0) > 0 || (state.setAsideCookies ?? 0) > 0) &&
+        h(
+          "div",
+          { class: "necto-notice", "data-notice": "mocked-cookies" },
+          (state.mockedCookies ?? 0) > 0
+            ? t("Mocked cookies in use: {count}", { count: String(state.mockedCookies) })
+            : t("Mocked cookies set aside until Map Local is on: {count}", {
+                count: String(state.setAsideCookies),
+              }),
+          " ",
+          h(
+            "button",
+            {
+              class: "necto-button",
+              "data-field": "discard-cookies",
+              tabindex: "0",
+              onclick: () => void this.model.discardCookies(),
+            },
+            t("Discard mocked cookies"),
+          ),
+        ),
       failure &&
         !failure.ok &&
         h(
           "div",
           { class: "necto-notice necto-notice-danger" },
-          t("Couldn't save ({reason}): {message}", { reason: failure.reason, message: translate(failure) }),
+          this.model.failedDuring === "discard"
+            ? t("Couldn't discard mocked cookies ({reason}): {message}", { reason: failure.reason, message: translate(failure) })
+            : t("Couldn't save ({reason}): {message}", { reason: failure.reason, message: translate(failure) }),
         ),
       this.model.conflict &&
         h(

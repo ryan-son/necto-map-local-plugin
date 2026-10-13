@@ -92,6 +92,9 @@ struct ContractTests {
         ("maplocal.requests.list", "{}"),
         ("maplocal.state", "{}"),
         ("maplocal.configuration.export", "{}"),
+        ("maplocal.cookies.restore", "{}"),
+        ("maplocal.cookies.restore", #"{"scope":"earlierLaunches"}"#),
+        ("maplocal.cookies.list", "{}"),
     ])
     func panelInputs(id: String, input: String) throws {
         let failure = NectoJSONSchema.validate(try Self.json(input), against: try Self.schema(id, "inputSchema"))
@@ -170,6 +173,10 @@ struct ContractTests {
         ("maplocal.rule.setActive", #"{"baseRevision":0,"id":"r","response":"ok"}"#, true, true),
         ("maplocal.rule.setActive", #"{"baseRevision":0,"id":"r"}"#, false, false),
         ("maplocal.rule.setActive", #"{"baseRevision":0,"id":"r","response":1}"#, false, false),
+        ("maplocal.cookies.restore", #"{"scope":"all"}"#, true, true),
+        ("maplocal.cookies.restore", #"{"scope":"some"}"#, false, false),
+        ("maplocal.cookies.restore", #"{"baseRevision":0}"#, false, false),
+        ("maplocal.cookies.list", #"{"x":1}"#, false, false),
     ])
     func schemaAndSwiftAgree(id: String, input: String, schemaAccepts: Bool, swiftAccepts: Bool) async throws {
         let operation = try #require(MapLocalOperation(rawValue: id))
@@ -197,9 +204,16 @@ struct ContractTests {
     func outputs() async throws {
         let engine = MapLocalEngine(
             store: MemoryConfigurationStore(Configuration(allowedHosts: ["maplocal.invalid"])),
-            blockedHosts: ["prod.invalid"]
+            blockedHosts: ["prod.invalid"],
+            cookieJar: StorageCookieJar.isolated()
         )
         engine.recordPassthrough(URLRequest(url: URL(string: "https://maplocal.invalid/a?page=1")!))
+        let cookieURL = URL(string: "https://maplocal.invalid/a")!
+        engine.writeMockedCookies(
+            HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": "sid=M; Path=/"], for: cookieURL),
+            for: cookieURL,
+            mainDocumentURL: nil
+        )
         let state = NectoMapLocalPlugin.encode(engine.state)
         let event = NectoMapLocalPlugin.encode(try #require(engine.recentRequests(limit: 1).events.first))
         let outputs: [(String, NectoJSONValue)] = [
@@ -211,7 +225,28 @@ struct ContractTests {
             ("maplocal.rule.upsert", .object(["ok": .bool(true), "revision": .number(2)])),
             ("maplocal.rule.delete", NectoMapLocalPlugin.failure("conflict", MapLocalMessage(.conflict), revision: 2)),
             ("maplocal.configuration.patch", NectoMapLocalPlugin.failure("readOnly", MapLocalMessage(.readOnly), revision: 0)),
+            ("maplocal.cookies.list", try await NectoMapLocalPlugin.perform(.cookiesList, input: .object([:]), engine: engine)),
+            ("maplocal.cookies.restore", try await NectoMapLocalPlugin.perform(.cookiesRestore, input: .object([:]), engine: engine)),
         ]
+        // After the restore, so the state carries lastCookieChange.
+        let restoredState = NectoMapLocalPlugin.encode(engine.state)
+        #expect(restoredState["lastCookieChange"] != nil)
+        #expect(NectoJSONSchema.validate(restoredState, against: try Self.schema("maplocal.state", "outputSchema")) == nil)
+        // lastCookieChange's shape is part of the contract: a drifted field must fail.
+        for id in ["maplocal.state", "maplocal.state.observe"] {
+            for (key, value) in [("date", JSONValue.string("now")), ("trigger", .string("sometime")), ("extra", .number(1))] {
+                guard case var .object(object) = try restoredState.decode(JSONValue.self),
+                      case var .object(change) = object["lastCookieChange"]
+                else {
+                    Issue.record("no lastCookieChange")
+                    continue
+                }
+                change[key] = value
+                object["lastCookieChange"] = .object(change)
+                let drifted = try NectoJSONValue(encoding: JSONValue.object(object))
+                #expect(NectoJSONSchema.validate(drifted, against: try Self.schema(id, "outputSchema")) != nil, "\(id) \(key)")
+            }
+        }
         for (id, output) in outputs {
             let failure = NectoJSONSchema.validate(output, against: try Self.schema(id, "outputSchema"))
             #expect(failure == nil, "\(id): \(String(describing: failure))")

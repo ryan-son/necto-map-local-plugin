@@ -80,6 +80,64 @@
           "launchID": {
             "type": "string",
             "description": "Changes every time the app launches."
+          },
+          "mockedCookies": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Mocked cookies in HTTPCookieStorage.shared now. 0 means none of Map Local's cookies are in use."
+          },
+          "setAsideCookies": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Mocked cookies set aside while Map Local is off. They return when it is turned on, unless the real cookie changed meanwhile."
+          },
+          "lastCookieChange": {
+            "type": "object",
+            "description": "What the last cookie restore, set-aside or put-back did this launch. The launch check always runs, so it is present from launch, with trigger launch, unless the cookie journal could not be read or saved then. date is milliseconds since 1970.",
+            "properties": {
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "explicit",
+                  "turnedOff",
+                  "turnedOn",
+                  "launch"
+                ]
+              },
+              "date": {
+                "type": "number"
+              },
+              "deleted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "restored": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "skipped": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reapplied": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dropped": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "trigger",
+              "date",
+              "deleted",
+              "restored",
+              "skipped",
+              "reapplied",
+              "dropped"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -159,6 +217,64 @@
           "launchID": {
             "type": "string",
             "description": "Changes every time the app launches."
+          },
+          "mockedCookies": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Mocked cookies in HTTPCookieStorage.shared now. 0 means none of Map Local's cookies are in use."
+          },
+          "setAsideCookies": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Mocked cookies set aside while Map Local is off. They return when it is turned on, unless the real cookie changed meanwhile."
+          },
+          "lastCookieChange": {
+            "type": "object",
+            "description": "What the last cookie restore, set-aside or put-back did this launch. The launch check always runs, so it is present from launch, with trigger launch, unless the cookie journal could not be read or saved then. date is milliseconds since 1970.",
+            "properties": {
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "explicit",
+                  "turnedOff",
+                  "turnedOn",
+                  "launch"
+                ]
+              },
+              "date": {
+                "type": "number"
+              },
+              "deleted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "restored": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "skipped": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reapplied": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dropped": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "trigger",
+              "date",
+              "deleted",
+              "restored",
+              "skipped",
+              "reapplied",
+              "dropped"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -934,6 +1050,168 @@
         },
         "required": [
           "configuration"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "maplocal.cookies.restore",
+      "title": "Restore real cookies",
+      "description": "Discards the cookies Map Local's mocks wrote to HTTPCookieStorage.shared and brings the real ones back. Takes no baseRevision: it writes no configuration. scope earlierLaunches leaves this launch's mocked cookies alone. Set-aside cookies are dropped. Returns the counts and each key's action (deleted, restored, skipped when something else rewrote the cookie, gone when something else deleted it); never a cookie value.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.cookies.restore",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "earlierLaunches"
+            ],
+            "description": "all (the default) or earlierLaunches."
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mockedCookies": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "setAsideCookies": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "deleted": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "restored": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "deleted",
+                    "restored",
+                    "skipped",
+                    "gone",
+                    "dropped"
+                  ]
+                }
+              },
+              "required": [
+                "domain",
+                "path",
+                "name",
+                "action"
+              ]
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "revision",
+          "mockedCookies",
+          "setAsideCookies",
+          "deleted",
+          "restored",
+          "skipped",
+          "entries"
+        ]
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "maplocal.cookies.list",
+      "title": "Mocked cookies",
+      "description": "Lists the keys of the cookies Map Local's mocks wrote: domain, path, name, layer (active or setAside) and launch (current or earlier). Never a cookie value.",
+      "kind": "once",
+      "binding": {
+        "name": "necto.device.maplocal.cookies.list",
+        "version": 1
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "layer": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "setAside"
+                  ]
+                },
+                "launch": {
+                  "type": "string",
+                  "enum": [
+                    "current",
+                    "earlier"
+                  ]
+                }
+              },
+              "required": [
+                "domain",
+                "path",
+                "name",
+                "layer",
+                "launch"
+              ]
+            }
+          }
+        },
+        "required": [
+          "entries"
         ]
       },
       "timeoutMs": 5000

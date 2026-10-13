@@ -62,6 +62,12 @@ public struct EngineState: Sendable, Equatable {
     /// When it changes, the panel knows the app was relaunched. `revision` alone cannot
     /// tell, because a relaunched app may report a revision the panel has already seen.
     public var launchID: String = ""
+    /// Mocked cookies in storage now.
+    public var mockedCookies: Int = 0
+    /// Mocked cookies set aside while Map Local is off, which return when it is on.
+    public var setAsideCookies: Int = 0
+    /// What the last restore, set-aside or put-back did, or nil if none ran this launch.
+    public var lastCookieChange: CookieChange?
 }
 
 /// Holds the configuration, answers requests from it, and reports what happened.
@@ -73,6 +79,7 @@ public final class MapLocalEngine: Sendable {
     /// The clock mocked delays wait on. Tests pass a clock they advance by hand.
     public let clock: any Clock<Duration>
     private let store: ConfigurationStore
+    private let cookies: CookieKeeper
     private let lock: OSAllocatedUnfairLock<EngineState>
     private let requests = Broadcaster<RequestEvent>(replay: false)
     /// How many request events `recentRequests(limit:)` can return.
@@ -91,20 +98,39 @@ public final class MapLocalEngine: Sendable {
     public init(
         store: ConfigurationStore,
         blockedHosts: Set<String>,
-        clock: any Clock<Duration> = ContinuousClock()
+        clock: any Clock<Duration> = ContinuousClock(),
+        cookieJar: any CookieJar = StorageCookieJar(),
+        now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.store = store
         self.clock = clock
         self.blockedHosts = Set(blockedHosts.compactMap(HostName.normalize))
+        let launchID = UUID().uuidString
+        cookies = CookieKeeper(store: store, jar: cookieJar, launchID: launchID, now: now)
         let loaded = store.load()
+        var issues = loaded.issues + cookies.issues
+        var launchChange: CookieChange?
+        do {
+            launchChange = try cookies.reconcileAtLaunch(enabled: loaded.configuration.enabled)
+        } catch is MapLocalMessage {
+            // A read-only journal, already reported in `cookies.issues`.
+        } catch let failure as CookieSaveFailure {
+            issues.append(MapLocalMessage(.cookieJournalSaveFailed, ["error": failure.error]))
+        } catch {
+            issues.append(MapLocalMessage(.cookieJournalSaveFailed, ["error": error.localizedDescription]))
+        }
+        let counts = cookies.counts
         let initial = EngineState(
             configuration: loaded.configuration,
             readOnly: loaded.readOnly,
-            issues: loaded.issues,
+            issues: issues,
             observedHosts: [],
             mayHoldMockedSession: store.loadAuthMocked(),
             blockedHosts: self.blockedHosts.sorted(),
-            launchID: UUID().uuidString
+            launchID: launchID,
+            mockedCookies: counts.active,
+            setAsideCookies: counts.setAside,
+            lastCookieChange: launchChange
         )
         lock = OSAllocatedUnfairLock(initialState: initial)
         states.send(initial)
@@ -138,7 +164,7 @@ public final class MapLocalEngine: Sendable {
     }
 
     private func apply(_ change: ConfigurationChange, expectedRevision: Int?) throws -> Configuration {
-        try lock.withLock { state in
+        let (configuration, flipped) = try lock.withLock { state in
             guard !state.readOnly else { throw ApplyError.readOnly }
             if let expectedRevision, state.configuration.revision != expectedRevision {
                 throw ApplyError.conflict(current: state.configuration.revision)
@@ -151,12 +177,58 @@ public final class MapLocalEngine: Sendable {
             configuration.revision = state.configuration.revision + 1
             configuration.version = Configuration.currentVersion
             try store.save(configuration)
+            let flipped = configuration.enabled != state.configuration.enabled
             state.configuration = configuration
             state.issues = configuration.unsupportedIssues
             states.send(state)
-            return configuration
+            return (configuration, flipped)
+        }
+        if flipped { syncCookies() }
+        return configuration
+    }
+
+    /// Moves cookies to match the switch as it is now, not as one write left it, so two
+    /// writes racing still end with cookies that match the last state. A failure never
+    /// fails the write that caused it.
+    private func syncCookies() {
+        do {
+            publishCookies(try cookies.sync { lock.withLock { $0.configuration.enabled } })
+        } catch let failure as CookieSaveFailure {
+            publishCookies(nil, issue: MapLocalMessage(.cookieJournalSaveFailed, ["error": failure.error]))
+        } catch {
+            publishCookies(nil)
         }
     }
+
+    private func publishCookies(_ change: CookieChange?, issue: MapLocalMessage? = nil) {
+        let counts = cookies.counts
+        lock.withLock { state in
+            state.mockedCookies = counts.active
+            state.setAsideCookies = counts.setAside
+            if let change { state.lastCookieChange = change }
+            if let issue { state.issues.append(issue) }
+            states.send(state)
+        }
+    }
+
+    /// Writes a mocked response's cookies through the journal.
+    public func writeMockedCookies(_ list: [HTTPCookie], for url: URL, mainDocumentURL: URL?) {
+        cookies.write(list, for: url, mainDocumentURL: mainDocumentURL)
+        publishCookies(nil)
+    }
+
+    /// Discards mocked cookies in `scope` and brings the real ones back.
+    ///
+    /// Throws `MapLocalMessage(.cookieJournalUnreadable)` when the journal is read-only,
+    /// and `CookieSaveFailure` when storage changed but the journal could not be saved.
+    @discardableResult
+    public func restoreMockedCookies(scope: CookieScope) throws -> CookieChange {
+        let change = try cookies.discard(scope: scope)
+        publishCookies(change)
+        return change
+    }
+
+    public func mockedCookieListing() -> [CookieListing] { cookies.listing() }
 
     static func applying(_ change: ConfigurationChange, to current: Configuration) throws -> Configuration {
         var configuration = current

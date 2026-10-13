@@ -52,6 +52,9 @@ public enum MessageCode: String, CaseIterable, Sendable {
     case fileUnreadable
     case fileMovedAside
     case fileTooNew
+    case cookieJournalUnreadable
+    case cookieJournalDeleted
+    case cookieJournalSaveFailed
     /// A rule that is kept but not applied. Its `cause` says why.
     case ruleUnsupported
 
@@ -92,6 +95,10 @@ public enum MessageCode: String, CaseIterable, Sendable {
         case .fileMovedAside: "Couldn't read the configuration file, so it was moved aside to {file}"
         case .fileTooNew: "Configuration version {version} is newer than this plugin, so it is read-only"
         case .ruleUnsupported: "Rule {rule}: {cause}"
+        case .cookieJournalUnreadable:
+            "Couldn't read the cookie journal, so mocked cookies can't be restored until the app relaunches: {error}"
+        case .cookieJournalDeleted: "The cookie journal couldn't be read and was deleted"
+        case .cookieJournalSaveFailed: "Couldn't save the cookie journal: {error}"
         }
     }
 }

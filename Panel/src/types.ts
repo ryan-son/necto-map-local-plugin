@@ -53,6 +53,21 @@ export interface EngineState {
   authMocked: boolean;
   /// Changes on every launch of the app, where `revision` starts again from 0.
   launchID: string;
+  /// Mocked cookies in storage now. Older apps don't send it.
+  mockedCookies?: number;
+  /// Mocked cookies set aside while Map Local is off. Older apps don't send it.
+  setAsideCookies?: number;
+}
+
+/// The answer to `maplocal.cookies.restore`.
+export interface CookieRestoreResult {
+  ok: true;
+  revision: number;
+  mockedCookies: number;
+  setAsideCookies: number;
+  deleted: number;
+  restored: number;
+  skipped: number;
 }
 
 export type Outcome =

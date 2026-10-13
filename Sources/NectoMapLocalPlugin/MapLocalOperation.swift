@@ -18,6 +18,8 @@ enum MapLocalOperation: String, CaseIterable, Sendable {
     case requestsObserve = "maplocal.requests.observe"
     case requestsList = "maplocal.requests.list"
     case configurationExport = "maplocal.configuration.export"
+    case cookiesRestore = "maplocal.cookies.restore"
+    case cookiesList = "maplocal.cookies.list"
 
     enum Kind: String {
         case once
@@ -35,8 +37,9 @@ enum MapLocalOperation: String, CaseIterable, Sendable {
     /// silently ignored with `ok`.
     var inputKeys: Set<String> {
         switch self {
-        case .state, .stateObserve, .requestsObserve, .configurationExport: []
+        case .state, .stateObserve, .requestsObserve, .configurationExport, .cookiesList: []
         case .requestsList: ["limit"]
+        case .cookiesRestore: ["scope"]
         case .configurationReplace: ["baseRevision", "force", "configuration"]
         case .configurationPatch: ["baseRevision", "enabled", "allowedHosts", "unmatched", "order", "authMocked"]
         case .ruleUpsert: ["baseRevision", "rule"]
@@ -49,7 +52,7 @@ enum MapLocalOperation: String, CaseIterable, Sendable {
     /// `baseRevision` unless `force` is true, which a schema cannot express.
     var requiredKeys: Set<String> {
         switch self {
-        case .state, .stateObserve, .requestsObserve, .configurationExport, .requestsList: []
+        case .state, .stateObserve, .requestsObserve, .configurationExport, .requestsList, .cookiesRestore, .cookiesList: []
         case .configurationReplace: ["configuration"]
         case .configurationPatch: ["baseRevision"]
         case .ruleUpsert: ["baseRevision", "rule"]

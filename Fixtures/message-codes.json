@@ -33,6 +33,9 @@
     "fileUnreadable": "Couldn't read the configuration file, so it opens read-only and won't be overwritten: {error}",
     "fileMovedAside": "Couldn't read the configuration file, so it was moved aside to {file}",
     "fileTooNew": "Configuration version {version} is newer than this plugin, so it is read-only",
-    "ruleUnsupported": "Rule {rule}: {cause}"
+    "ruleUnsupported": "Rule {rule}: {cause}",
+    "cookieJournalUnreadable": "Couldn't read the cookie journal, so mocked cookies can't be restored until the app relaunches: {error}",
+    "cookieJournalDeleted": "The cookie journal couldn't be read and was deleted",
+    "cookieJournalSaveFailed": "Couldn't save the cookie journal: {error}"
   }
 }
