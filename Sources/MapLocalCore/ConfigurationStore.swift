@@ -25,15 +25,12 @@ public protocol ConfigurationStore: Sendable {
     func loadAuthMocked() -> Bool
     func saveAuthMocked(_ value: Bool)
     /// The journal of cookies mocked responses wrote.
+    ///
+    /// There is no default: a store that kept nothing would lose the journal on relaunch, and
+    /// a discard after that could not bring the real cookies back. A store that wraps
+    /// `FileConfigurationStore` forwards these two as well.
     func loadCookieJournal() -> CookieJournalLoad
     func saveCookieJournal(_ journal: CookieJournal) throws
-}
-
-extension ConfigurationStore {
-    /// A store written before the cookie journal keeps none. Mocked cookies are then
-    /// journaled in memory only, for the life of the process.
-    public func loadCookieJournal() -> CookieJournalLoad { .loaded(.empty) }
-    public func saveCookieJournal(_ journal: CookieJournal) throws {}
 }
 
 /// Stores the configuration as JSON in a directory of the app's container.

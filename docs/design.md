@@ -220,6 +220,10 @@ badge's sheet asks the same way, with the same words (`Effects.sessionAtRisk` mi
 `cookie-journal.json` beside the configuration (`Sources/MapLocalCore/CookieKeeper.swift`).
 - The engine performs the write itself, under the journal's lock, so a restore cannot
   fall between a write's read and its store.
+- A custom `ConfigurationStore` must keep the journal too: the protocol gives its two
+  methods no default, so a store that forgets them does not compile. A default that kept
+  nothing would lose the journal on relaunch, and a discard after that could not bring the
+  real cookies back.
 - A restore compares the cookie in storage with what the mock left, instead of watching
   real responses. Responses from sessions and hosts Map Local does not intercept never
   reach it, and comparing finds every rewrite.
