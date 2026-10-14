@@ -60,7 +60,7 @@ hesitated.>
 
 ## 0.2.0 — not tagged yet
 
-Build: the release candidate, once the release prep is merged · Necto 0.2.0 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
+Build: the release candidate, once the release prep is merged · Necto 0.2.1 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
 Targets: iOS simulator (iPhone 18 Pro, iOS 27.0) · device: to be decided
 
 Every row below must be filled on the release candidate before the tag. 0.2.0 adds the
