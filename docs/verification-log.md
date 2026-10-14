@@ -75,7 +75,7 @@ itself.
 | Check | Result |
 | --- | --- |
 | `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 at the release prep |
-| `swift test` | 89 + 131 tests |
+| `swift test` | 91 + 131 tests |
 | `cd Panel && npx vitest run` | 1143 tests |
 | Release workflow on GitHub (tag check, CI, assets) | not run yet: runs on the tag |
 
@@ -108,6 +108,7 @@ itself.
 | The panel's cookie notice, discard, and failed-discard banner | not verified yet | | Seen only with a patched dev mock |
 | The log-out confirmation's cookie sentence | not verified yet | | |
 | The badge sheet's mocked cookie sentence | not verified yet | | Covered by `BadgeControlTests` only |
+| A mocked request on iOS 17.0–17.4, where the `URLProtocol.task` getter may be missing (#9) | not verified yet | | 16.4 lacks it and 17.5 has it; the fallback is covered by `URLProtocolTests` through a switch |
 
 ### Simulation results
 

@@ -5,6 +5,7 @@
 - In a panel narrower than 640 px the allowed hosts fold behind an "Allowed hosts N" button and open over the content. They close on a click outside, when focus leaves them, or with Escape where the host lets it through. The header's first row stays one line instead of squeezing its labels
 - With no allowed host, the header says so in the warning colour at every width: "No allowed hosts — add one" on the folded button, "No allowed hosts" in the hosts' caption
 - Response tabs wrap onto more lines instead of widening the editor, and a long name is cut short with all of it shown on hover
+- A mocked request no longer ends the app where the OS lacks the `URLProtocol.task` getter (seen on iOS 16.4); there the request is decided again when it starts
 - A custom `ConfigurationStore` must implement `loadCookieJournal()` and `saveCookieJournal(_:)`; there is no default, so a store that keeps no journal doesn't compile
 
 ## 0.1.0
