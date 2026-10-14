@@ -7,7 +7,7 @@ decisions the code still follows are here; when one changes, change this file wi
 How the panel looks and behaves is decided in [experience.md](experience.md), and how to
 use the plugin is in [usage.md](usage.md).
 
-Upstream references are to Necto 0.2.0, the version this release resolves.
+Upstream references are to Necto 0.2.0. This release resolves 0.2.1, which changes only UI Control's touch injection; none of the files cited here changed.
 
 ## Goal
 

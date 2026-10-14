@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+- Mocked cookies: a `Set-Cookie` in a mocked response is journaled with the cookie it replaced. Turning Map Local off sets mocked cookies aside and turning it on puts them back; "Discard mocked cookies" in the panel, `maplocal.cookies.restore`, or `NectoMapLocalPlugin.restoreMockedCookies(scope:)` brings the real ones back, and `maplocal.cookies.list` shows them. `maplocal.state` carries `mockedCookies`, `setAsideCookies` and `lastCookieChange`. Every binding stays at version 1
+- In a panel narrower than 640 px the allowed hosts fold behind an "Allowed hosts N" button and open over the content. They close on a click outside, when focus leaves them, or with Escape where the host lets it through. The header's first row stays one line instead of squeezing its labels
+- With no allowed host, the header says so in the warning colour at every width: "No allowed hosts — add one" on the folded button, "No allowed hosts" in the hosts' caption
+- Response tabs wrap onto more lines instead of widening the editor, and a long name is cut short with all of it shown on hover
+- A mocked request no longer ends the app where the OS lacks the `URLProtocol.task` getter (seen on iOS 16.4); there the request is decided again when it starts
+- A custom `ConfigurationStore` must implement `loadCookieJournal()` and `saveCookieJournal(_:)`; there is no default, so a store that keeps no journal doesn't compile
+
 ## 0.1.0
 - Define endpoint responses in a Necto panel and apply them at once: rules, switching responses, delays, errors, and blocking or failing requests without a rule
 - Rule matching on method, host, path template (`{id}`) and query conditions. When several rules match, the one with the most query conditions responds. A rule path is written percent-encoded, as requests are matched; a path with a raw space or non-ASCII characters is refused
@@ -7,10 +15,9 @@
 - Selecting a request keeps the chronological list flowing: the selection stays in place, the line above the list counts what came after it under the current filters, and "Show newest" goes to the latest. Only "Pause" freezes the list
 - "Rule for this query only" makes a rule with a request's query as its conditions when a rule mocks it for every query. When a rule made from traffic doesn't answer a later request, the detail says which condition missed, and offers to drop the condition only when the rule would then answer
 - The rule editor says, under the query conditions, which rule answers a request it shares with another rule and why, as the engine decides across all rules; its latest-request line shows what happened to that request and opens it in Traffic
-- Responses: each tab says what it holds (status, network error, delay), a dot marks the one the app gets, "Name" renames a response, and each tab's × deletes it without making it the one the app gets. Tabs wrap onto more lines instead of widening the editor, and a long name is cut short with all of it shown on hover. Status takes a typed code or one from "Common codes"; a code outside 100–599 is not saved
+- Responses: each tab says what it holds (status, network error, delay), a dot marks the one the app gets, "Name" renames a response, and each tab's × deletes it without making it the one the app gets. Status takes a typed code or one from "Common codes"; a code outside 100–599 is not saved
 - Keyboard: ↑↓ to move through a list, ⌘↩ to mock, `/` to search. Deleting offers undo instead of asking first
 - Add allowed hosts by typing them or by picking them from traffic. The header reads "Map Local on/off"; while it is off, a notice says no rule applies and the rules are dimmed
-- In a panel narrower than 640 px the allowed hosts fold behind an "Allowed hosts N" button ("No allowed hosts — add one" in the warning colour when there are none; wider, the hosts' caption reads "No allowed hosts" in the warning colour) and open over the content; the header's first row no longer squeezes its labels
 - "+ Rule" starts a rule off until its path is first edited, so an empty rule answers nothing
 - "Paste configuration" shows what the pasted text holds before importing it
 - Captures, configuration copies and the request log carry values as they are, as Necto's network records do. Copying the configuration warns in one line when something looks like a token
@@ -23,6 +30,4 @@
 - Strict input schemas for every operation (required keys, types, enums, limits, `additionalProperties: false`) and descriptions that say where inputs come from, so `necto-cli plugin help` and coding agents can build valid input. Output schemas declare the success and `ok:false` branches
 - Only `conflict` and `readOnly` answer as `ok:false` data. Malformed input throws `INVALID_INPUT`, a missing rule or response `OPERATION_UNAVAILABLE`, a failed save `PROVIDER_FAILED`, so the CLI exits nonzero; the panel translates them. When Necto's network plugin is unavailable, the traffic tab shows Necto's reason as-is
 - Contract versioning: every `necto.device.maplocal.*` binding starts at version 1. A breaking change to an operation's input, output or error model ships under a new binding version; additive changes do not
-- Mocked cookies: a `Set-Cookie` in a mocked response is journaled with the cookie it replaced. Turning Map Local off sets mocked cookies aside and turning it on puts them back; "Discard mocked cookies" in the panel, `maplocal.cookies.restore`, or `NectoMapLocalPlugin.restoreMockedCookies(scope:)` brings the real ones back, and `maplocal.cookies.list` shows them. `maplocal.state` carries `mockedCookies`, `setAsideCookies` and `lastCookieChange`
-- A custom `ConfigurationStore` must implement `loadCookieJournal()` and `saveCookieJournal(_:)`; there is no default, so a store that keeps no journal doesn't compile
 - Plugin code is excluded from Release builds, with a script that checks release archives and control builds that prove it

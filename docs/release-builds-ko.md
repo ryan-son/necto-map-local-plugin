@@ -58,8 +58,8 @@ Xcode는 **빌드 구성 이름에 `debug`가 들어가면(대소문자 무관) 
 것은 여러분 저장소에 고정해 둔 해시뿐이에요.
 
 ```bash
-base=https://github.com/ryan-son/necto-map-local-plugin/releases/download/0.1.0
-expected=<0.1.0 릴리스 노트의 SHA-256>                      # 여러분 저장소에 고정
+base=https://github.com/ryan-son/necto-map-local-plugin/releases/download/0.2.0
+expected=<0.2.0 릴리스 노트의 SHA-256>                      # 여러분 저장소에 고정
 curl -fsSL -O "$base/verify-release"
 echo "$expected  verify-release" | shasum -a 256 -c      # verify-release: OK
 bash verify-release build/App.xcarchive                  # 우리 흔적

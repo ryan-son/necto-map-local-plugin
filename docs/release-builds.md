@@ -60,8 +60,8 @@ place as the script, so whoever could replace one could replace both. Only a has
 your own repository catches such a swap.
 
 ```bash
-base=https://github.com/ryan-son/necto-map-local-plugin/releases/download/0.1.0
-expected=<SHA-256 from the 0.1.0 release notes>             # pinned in your repository
+base=https://github.com/ryan-son/necto-map-local-plugin/releases/download/0.2.0
+expected=<SHA-256 from the 0.2.0 release notes>             # pinned in your repository
 curl -fsSL -O "$base/verify-release"
 echo "$expected  verify-release" | shasum -a 256 -c      # verify-release: OK
 bash verify-release build/App.xcarchive                  # our traces
