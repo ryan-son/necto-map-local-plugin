@@ -120,7 +120,12 @@ struct URLProtocolTests {
         #expect(String(decoding: data, as: UTF8.self) == "upstream")
     }
 
-    @Test("a task answers with its first decision even when the configuration changes before it starts")
+    // Where the OS has no URLProtocol.task getter (iOS 16.4), a task is decided again by design;
+    // taskWithoutGetter covers that path.
+    @Test(
+        "a task answers with its first decision even when the configuration changes before it starts",
+        .enabled(if: MapLocalURLProtocol.readsTask, "needs the URLProtocol.task getter, which iOS 16.4 lacks")
+    )
     func taskKeepsItsDecision() throws {
         let engine = install([Self.rule(
             "/a",
