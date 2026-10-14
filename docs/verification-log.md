@@ -109,6 +109,7 @@ itself.
 | The log-out confirmation's cookie sentence | not verified yet | | |
 | The badge sheet's mocked cookie sentence | not verified yet | | Covered by `BadgeControlTests` only |
 | A mocked request on iOS 17.0–17.4, where the `URLProtocol.task` getter may be missing (#9) | not verified yet | | 16.4 lacks it and 17.5 has it; the fallback is covered by `URLProtocolTests` through a switch |
+| The `URLProtocol.task` fallback on iOS 16.4 (#9, #10), from `feature/ios-16-support`, which alone supports iOS 16 | pass | a2e2f5e | Xcode 26.3, iPhone 14 Pro simulator, in the consuming app's verification session. Before: SIGABRT on the first mocked request, and xctest crashed with 0 tests run. After: the mocked 404 reached the app with the same pid, no crash report, no real request; `NectoMapLocalPluginTests` 90 of 91, with the first-decision test failing by design, which #10 now skips there |
 
 ### Simulation results
 
