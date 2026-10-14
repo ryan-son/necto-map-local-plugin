@@ -5,6 +5,7 @@
 #if MAP_LOCAL_ENABLED
 import Foundation
 import MapLocalCore
+import os
 
 /// Answers the requests the engine decides to mock, and lets every other request through.
 ///
@@ -15,6 +16,20 @@ import MapLocalCore
 final class MapLocalURLProtocol: URLProtocol {
     private var relay: ClientRelay?
     var work: Task<Void, Never>?
+
+    /// Whether this OS answers `URLProtocol.task`. The SDK declares it from iOS 8, but on
+    /// iOS 16.4 the getter is missing at run time and calling it ends the app with an
+    /// unrecognized selector (17.5 has it). Without it, a task can't take back the decision
+    /// `canInit(with:)` made, so `startLoading` decides its request again. Asked once, of the
+    /// running OS, rather than fixed to a version nobody has measured.
+    static var readsTask: Bool {
+        get { taskGetter.withLock { $0 } }
+        set { taskGetter.withLock { $0 = newValue } }
+    }
+
+    private static let taskGetter = OSAllocatedUnfairLock(
+        initialState: instancesRespond(to: #selector(getter: URLProtocol.task))
+    )
 
     /// Called exactly once per task, and once per redirect hop.
     ///
@@ -31,7 +46,8 @@ final class MapLocalURLProtocol: URLProtocol {
             engine.recordPassthrough(request)
             return false
         }
-        TaskDecisions.shared.store(decision, for: task)
+        // Kept only where startLoading can read the task to take it back.
+        if readsTask { TaskDecisions.shared.store(decision, for: task) }
         return true
     }
 
@@ -47,6 +63,7 @@ final class MapLocalURLProtocol: URLProtocol {
 
     override func startLoading() {
         let request = self.request
+        let task = Self.readsTask ? task : nil
         let decision = task.flatMap(TaskDecisions.shared.take) ?? MapLocalRuntime.engine?.decide(request)
         guard let decision, let url = request.url, let engine = MapLocalRuntime.engine else {
             let error = URLError(

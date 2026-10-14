@@ -139,6 +139,40 @@ struct URLProtocolTests {
         #expect(client.status == 200)
     }
 
+    @Test("where the OS has no URLProtocol.task getter (iOS 16.4), a task is decided again from the current configuration instead of crashing")
+    func taskWithoutGetter() throws {
+        let engine = install([Self.rule(
+            "/a",
+            ["one": ResponseSpec(status: 200), "two": ResponseSpec(status: 500)],
+            active: "one"
+        )])
+        let readsTask = MapLocalURLProtocol.readsTask
+        MapLocalURLProtocol.readsTask = false
+        defer { MapLocalURLProtocol.readsTask = readsTask }
+        let task = session().dataTask(with: URL(string: "https://\(Self.host)/a")!)
+        defer { task.cancel() }
+        #expect(MapLocalURLProtocol.canInit(with: task))
+        try engine.apply(.setActive(ruleID: "r", response: "two"), baseRevision: 0)
+        let client = RecordingClient()
+        let loader = LoaderThread()
+        defer { loader.stop() }
+        loader.run { MapLocalURLProtocol(task: task, cachedResponse: nil, client: client).startLoading() }
+        client.waitForEnd()
+        #expect(client.status == 500)
+    }
+
+    @Test("where the OS has no URLProtocol.task getter, canInit keeps no decision that nothing would take back")
+    func noDecisionKeptWithoutGetter() {
+        install([Self.rule("/a", ["ok": ResponseSpec(status: 200)], active: "ok")])
+        let readsTask = MapLocalURLProtocol.readsTask
+        MapLocalURLProtocol.readsTask = false
+        defer { MapLocalURLProtocol.readsTask = readsTask }
+        let task = session().dataTask(with: URL(string: "https://\(Self.host)/a")!)
+        defer { task.cancel() }
+        #expect(MapLocalURLProtocol.canInit(with: task))
+        #expect(TaskDecisions.shared.take(task) == nil)
+    }
+
     @Test("a request the app copies and sends again is decided anew from the current configuration and its URL")
     func copiedRequestIsDecidedAgain() async throws {
         let engine = install([])
