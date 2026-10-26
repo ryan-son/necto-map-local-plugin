@@ -25,7 +25,6 @@ import { isJSONDocument, readJSON } from "./json";
 import { normalizeHost, readHostInput } from "./hosts";
 import { Lifetime } from "./lifetime";
 import { addCapturedResponse, captureResponse, newRuleFromCapture, planCapture, requestURL } from "./traffic/capture";
-import { OrderDetector } from "./traffic/order";
 import { TrafficStore } from "./traffic/store";
 import { TrafficView, type CaptureDone, type Unkept } from "./traffic/view";
 import { formatClock, formatDuration } from "./traffic/format";
@@ -68,7 +67,7 @@ export interface ViewDeps {
   /// Per-viewer view choices, such as the tab and the list mode.
   prefs: Prefs;
   /// When absent the view makes its own store, for tests that render without connecting.
-  traffic?: { store: TrafficStore; order: OrderDetector };
+  traffic?: { store: TrafficStore };
 }
 
 type Tab = "rules" | "traffic";
@@ -329,10 +328,7 @@ export class View {
   ) {
     this.tab = deps.prefs.get("panel.tab") === "traffic" ? "traffic" : "rules";
     this.rulesRatio = readSplit(deps.prefs, "split.rules");
-    const traffic = deps.traffic ?? {
-      store: new TrafficStore(() => this.refreshTraffic()),
-      order: new OrderDetector(),
-    };
+    const traffic = deps.traffic ?? { store: new TrafficStore(() => this.refreshTraffic()) };
     this.trafficStore = traffic.store;
     this.trafficView = new TrafficView(this.trafficHost, {
       ...traffic,

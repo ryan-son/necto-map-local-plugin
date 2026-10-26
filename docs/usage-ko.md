@@ -134,37 +134,34 @@ Map Local은 허용 호스트로 가는 요청만 목업해요.
 
 ### 실제 응답 캡처하기
 
-실제 응답(상태·헤더·본문)을 보고 새 규칙에 채우려면 Necto 네트워크 플러그인을 Map Local
-**다음에** 등록하세요.
+실제 응답(상태·헤더·본문)을 보고 새 규칙에 채우려면 Necto의 `NectoURLSessionCapturePlugin`을
+링크하고 Necto 네트워크 플러그인을 등록하세요.
 
 ```swift
 #if DEBUG
-import NectoURLSessionCapture   // URLSessionNetworkPlugin은 이 모듈에 있어요
+import NectoURLSessionCapturePlugin   // URLSessionNetworkPlugin은 이 모듈에 있어요
 #endif
 
 #if DEBUG
-NectoSDK.register(NectoMapLocalPlugin())      // 먼저
-NectoSDK.register(URLSessionNetworkPlugin())  // 나중에
+NectoSDK.register(NectoMapLocalPlugin())
+NectoSDK.register(URLSessionNetworkPlugin())
 NectoSDK.start()
 #endif
 ```
 
-순서가 중요해요. Necto 0.2.0에서 직접 확인한 결과예요.
+Necto 0.2.2에서 직접 확인한 결과예요.
 
-- Map Local을 먼저 등록하면 목업된 요청이 목업 응답과 함께 「트래픽」 탭에 보여요. 요청마다 한
-  번씩만 기록돼요.
-- 네트워크 플러그인을 먼저 등록하면 목업된 요청이 「트래픽」 탭에서 사라지고, 실서버로 간
-  요청이 두 번 기록돼요. 목업된 요청이 Necto 기록에 보이지 않거나 실서버로 간
-  요청이 두 번 기록되면 패널이 경고를 띄워요.
+- 목업된 요청이 목업 응답과 함께 「트래픽」 탭에 보이고, 요청마다 한 번씩만 기록돼요. 어느
+  플러그인을 먼저 등록하든 같아요.
 - 네트워크 플러그인이 없어도 탭은 요청을 보여 주지만 응답은 볼 수 없어요. 요청으로 규칙을
   만들면 빈 200 JSON 응답이 돼요.
 
-대가가 있어요. 네트워크 플러그인은 요청을 `URLSession(configuration: .ephemeral)`로 다시
-보내요. 그래서 이 요청은 앱 세션의 delegate(인증 챌린지·피닝), 공용 쿠키, URLCache를 거치지
-않아요. 캡처는 선택 기능이에요.
+대가가 있어요. 네트워크 플러그인은 앱의 세션이 돌리는 작업을 Foundation의 비공개 훅으로
+지켜봐요. 요청을 다시 보내거나 delegate를 바꾸지는 않아요. Necto는 비공개 API를 금지하는 앱에는
+이 product를 링크하지 말라고 안내해요. 캡처는 선택 기능이에요.
 
 이 기능은 Necto 문서에 없는 동작에 기대요. 패널은 다른 플러그인의 브리지, 곧 네트워크
-플러그인의 `necto.device.network-records.*`를 불러요. Necto 0.2.0은 이를 연결해 주지만,
+플러그인의 `necto.device.network-records.*`를 불러요. Necto 0.2.2는 이를 연결해 주지만,
 Necto의 브리지 문서는 앱 브리지를 한 플러그인 범위로 설명해요. 패널은 연결할 때마다 사용 가능
 여부를 확인하고, 기록을 쓸 수 없으면 Necto가 준 이유를 보여 줘요. 「규칙」 탭은 기록 없이도
 동작해요. 이 동작은 이후 Necto 릴리스에서 바뀔 수 있어요.

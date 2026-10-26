@@ -4,7 +4,6 @@
 
 import type { MapLocalAPI } from "./api";
 import type { PanelModel } from "./model";
-import type { OrderDetector } from "./traffic/order";
 import type { TrafficStore } from "./traffic/store";
 import type { View } from "./view";
 
@@ -16,7 +15,7 @@ import type { View } from "./view";
 /// silent end is caught by the periodic health check.
 export function connect(
   api: MapLocalAPI, model: PanelModel, view: View,
-  traffic?: { store: TrafficStore; order: OrderDetector }, retryMs = 2000, healthMs = 5000,
+  traffic?: { store: TrafficStore }, retryMs = 2000, healthMs = 5000,
 ): { stop: () => void; firstAttempt: Promise<void> } {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -39,8 +38,8 @@ export function connect(
   let attempting = false;
 
   /// Settles the launch before any record goes in. Any later, and the previous launch's
-  /// lastSeq would drop new records and mix evidence from two launches.
-  const adopt = (launchID: string) => { traffic?.store.reset(launchID); traffic?.order.reset(launchID); };
+  /// lastSeq would drop new records and mix records from two launches.
+  const adopt = (launchID: string) => { traffic?.store.reset(launchID); };
 
   const release = (unsubscribe: () => Promise<void>) => void unsubscribe().catch(() => undefined);
 
@@ -74,9 +73,6 @@ export function connect(
       try {
         network = await api.observeNetwork((record) => {
           if (!isCurrent(mine)) return;
-          // The detector goes first so the warning redrawn by the store's onChange sees
-          // this record.
-          t.order.liveNetwork(record);
           t.store.ingestNetwork([record]);
         }, () => { if (isCurrent(mine)) networkSubscribed = false; });
       } catch {
@@ -86,7 +82,6 @@ export function connect(
       if (!keepIn(mine, network)) return;
       networkSubscribed = true;
       networkBackoff = 1;
-      t.order.networkStarted();
       const records = await api.networkRecords().catch(() => []);
       if (isCurrent(mine)) t.store.ingestNetwork(records);
     } finally { networkAttaching = false; }
@@ -118,9 +113,6 @@ export function connect(
       const requests = await api.observeRequests((event) => {
         if (!current()) return;
         model.receiveRequest(event);
-        // The order detector can only pair evidence gathered while Necto's subscription
-        // is alive.
-        if (networkSubscribed) traffic?.order.liveOurs(event);
         traffic?.store.ingestOurs([event]);
       }, () => { if (current()) retry(); });
       if (!keep(requests)) return;

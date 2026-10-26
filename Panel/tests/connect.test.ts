@@ -5,7 +5,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { connect } from "../src/connect";
 import { PanelModel } from "../src/model";
-import { OrderDetector } from "../src/traffic/order";
 import { TrafficStore } from "../src/traffic/store";
 import type { NetworkSummary, RequestEvent } from "../src/types";
 import { View } from "../src/view";
@@ -107,9 +106,7 @@ function connectionsSeen(view: View): string[] {
 }
 
 function traffic() {
-  const store = new TrafficStore(() => undefined);
-  const order = new OrderDetector();
-  return { store, order };
+  return { store: new TrafficStore(() => undefined) };
 }
 
 test("lists Necto records after attaching the subscription, and drops streamed records at or below the lastSeq of our record list", async () => {
@@ -127,7 +124,7 @@ test("lists Necto records after attaching the subscription, and drops streamed r
     prefs: { get: () => undefined, set: () => undefined },
   });
   const store = new TrafficStore(() => undefined);
-  connect(api, model, view, { store, order: new OrderDetector() }, 2000);
+  connect(api, model, view, { store }, 2000);
   await vi.advanceTimersByTimeAsync(0);
   expect(api.calls.indexOf("observeNetwork")).toBeLessThan(api.calls.indexOf("networkRecords"));
   expect(view.networkAvailable).toBe(true);
@@ -190,7 +187,7 @@ test("the periodic check re-reads the detail of a row pending for more than 10 s
     prefs: { get: () => undefined, set: () => undefined },
   });
   const store = new TrafficStore(() => undefined);
-  connect(api, model, view, { store, order: new OrderDetector() }, 2000, 5000);
+  connect(api, model, view, { store }, 2000, 5000);
   await vi.advanceTimersByTimeAsync(15_000);
   expect(store.entries()[0]).toMatchObject({ state: "completed", status: 200 });
 });
@@ -233,42 +230,25 @@ test("does not add records the previous subscription delivers late after a retry
   expect(t.store.entries()).toHaveLength(0);
 });
 
-test("judges the registration-order warning only after the Necto network subscription is attached", async () => {
-  const api = new FakeAPI();
-  api.network = true;
-  const { model, view } = setup(api);
-  const t = traffic();
-  const started = vi.spyOn(t.order, "networkStarted");
-  await connect(api, model, view, t, 2000).firstAttempt;
-  expect(started).toHaveBeenCalledTimes(1);
-  expect(api.calls.indexOf("observeNetwork")).toBeGreaterThanOrEqual(0);
-});
-
-test("without the network plugin, does not report the Necto subscription as started and adds only our records", async () => {
+test("without the network plugin, does not subscribe to Necto and adds only our records", async () => {
   const api = new FakeAPI();
   api.listed = { events: [ours(1)], lastSeq: 1 };
   const { model, view } = setup(api);
   const t = traffic();
-  const started = vi.spyOn(t.order, "networkStarted");
   await connect(api, model, view, t, 2000).firstAttempt;
-  expect(started).not.toHaveBeenCalled();
   expect(api.calls).toEqual(["requestsList"]);
   expect(t.store.entries()).toHaveLength(1);
 });
 
-test("our record stream and the Necto record stream flow into the store and the order detector", async () => {
+test("our record stream and the Necto record stream flow into the store", async () => {
   const api = new FakeAPI();
   api.network = true;
   const { model, view } = setup(api);
   const t = traffic();
-  const liveOurs = vi.spyOn(t.order, "liveOurs");
-  const liveNetwork = vi.spyOn(t.order, "liveNetwork");
   await connect(api, model, view, t, 2000).firstAttempt;
   api.onRequest!(ours(2, "/b"));
   api.onNetwork!(record("n"));
   expect(model.requests).toHaveLength(1);
-  expect(liveOurs).toHaveBeenCalledTimes(1);
-  expect(liveNetwork).toHaveBeenCalledTimes(1);
   expect(t.store.entries().map((e) => e.key).sort()).toEqual(["n", "ours:2"]);
 });
 
@@ -330,13 +310,11 @@ test("the rules screen stays connected when the Necto subscription fails", async
   const t = traffic();
   const seen = connectionsSeen(view);
   const observeState = vi.spyOn(api, "observeState");
-  const started = vi.spyOn(t.order, "networkStarted");
   await connect(api, model, view, t, 2000, 60_000).firstAttempt;
   await vi.advanceTimersByTimeAsync(2000 * 3);
   expect(view.connection).toBe("connected");
   expect(observeState).toHaveBeenCalledTimes(1);
   expect(seen).not.toContain("waiting");
-  expect(started).not.toHaveBeenCalled();
   expect(api.calls).not.toContain("networkRecords");
 });
 
@@ -412,51 +390,11 @@ test("does not attach a new subscription again when the previous Necto subscript
   stop();
 });
 
-test("does not count mock records that arrive before the Necto subscription is attached toward the registration-order warning", async () => {
-  const api = new FakeAPI();
-  api.network = true;
-  let release!: () => void;
-  const observe = api.observeNetwork.bind(api);
-  api.observeNetwork = (on, onError) => new Promise((resolve) => { release = () => resolve(observe(on, onError)); });
-  const { model, view } = setup(api);
-  const t = traffic();
-  const liveOurs = vi.spyOn(t.order, "liveOurs");
-  const { firstAttempt, stop } = connect(api, model, view, t, 2000, 60_000);
-  await vi.advanceTimersByTimeAsync(0);
-  const now = Date.now();
-  for (const seq of [1, 2, 3])
-    api.onRequest!({
-      ...ours(seq, `/m${seq}`),
-      date: now,
-      outcome: { mocked: { rule: "r", response: "ok", status: 200 } },
-    });
-  release();
-  await firstAttempt;
-  await vi.advanceTimersByTimeAsync(2000);
-  expect(liveOurs).not.toHaveBeenCalled();
-  expect(t.order.warning()).toBe(false);
-  stop();
-});
-
-test("does not count our records that arrive after the Necto subscription ends toward the registration-order warning", async () => {
-  const api = new FakeAPI();
-  api.network = true;
-  const { model, view } = setup(api);
-  const t = traffic();
-  const liveOurs = vi.spyOn(t.order, "liveOurs");
-  const { firstAttempt, stop } = connect(api, model, view, t, 2000, 60_000);
-  await firstAttempt;
-  api.networkErrorHandler!(new Error("ended"));
-  api.onRequest!(ours(1));
-  expect(liveOurs).not.toHaveBeenCalled();
-  stop();
-});
-
 test("tells the screen when the Necto network plugin is missing", async () => {
   const api = new FakeAPI();
   const { model, view } = setup(api);
   view.networkAvailable = true;
-  connect(api, model, view, { store: new TrafficStore(() => undefined), order: new OrderDetector() }, 2000);
+  connect(api, model, view, { store: new TrafficStore(() => undefined) }, 2000);
   await vi.advanceTimersByTimeAsync(0);
   expect(view.networkAvailable).toBe(false);
 });
@@ -493,33 +431,6 @@ const mockedEvent = (seq: number): RequestEvent => ({
   outcome: { mocked: { rule: "r", response: "ok", status: 200 } },
 });
 
-test("three mocks arriving together right after the Necto subscription do not raise the order warning without Necto records (records queued before ready)", async () => {
-  const api = new FakeAPI();
-  api.network = true;
-  const { model, view } = setup(api);
-  const t = traffic();
-  const { firstAttempt, stop } = connect(api, model, view, t, 2000, 60_000);
-  await firstAttempt;
-  for (const seq of [1, 2, 3]) api.onRequest!(mockedEvent(seq));
-  await vi.advanceTimersByTimeAsync(5000);
-  expect(t.order.warning()).toBe(false);
-  stop();
-});
-
-test("three unpaired mocks arriving after the grace period raise the order warning", async () => {
-  const api = new FakeAPI();
-  api.network = true;
-  const { model, view } = setup(api);
-  const t = traffic();
-  const { firstAttempt, stop } = connect(api, model, view, t, 2000, 60_000);
-  await firstAttempt;
-  await vi.advanceTimersByTimeAsync(2000);
-  for (const seq of [1, 2, 3]) api.onRequest!(mockedEvent(seq));
-  await vi.advanceTimersByTimeAsync(1000);
-  expect(t.order.warning()).toBe(true);
-  stop();
-});
-
 test("does not add a previous launch's pending re-check detail that arrives after a relaunch to the same id in the new launch", async () => {
   const api = new FakeAPI();
   api.network = true;
@@ -549,22 +460,17 @@ test("does not add a previous launch's pending re-check detail that arrives afte
   stop();
 });
 
-test("keeps the order warning and the records when a state notification repeats the same launch, and clears the warning too on a new launch", async () => {
+test("keeps the records when a state notification repeats the same launch, and clears them on a new launch", async () => {
   const api = new FakeAPI();
   api.network = true;
   const { model, view } = setup(api);
   const t = traffic();
   const { firstAttempt, stop } = connect(api, model, view, t, 2000, 60_000);
   await firstAttempt;
-  await vi.advanceTimersByTimeAsync(2000);
   for (const seq of [1, 2, 3]) api.onRequest!(mockedEvent(seq));
-  await vi.advanceTimersByTimeAsync(1000);
-  expect(t.order.warning()).toBe(true);
   api.onState!({ ...engineState() });
-  expect(t.order.warning()).toBe(true);
   expect(t.store.entries()).toHaveLength(3);
   api.onState!({ ...engineState(), launchID: "launch-2" });
-  expect(t.order.warning()).toBe(false);
   expect(t.store.entries()).toHaveLength(0);
   stop();
 });

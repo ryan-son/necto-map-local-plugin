@@ -36,7 +36,7 @@ archive "$root/Examples/SeparateProject/App/App.xcodeproj" Shop Release shop-rel
 
 assert "① same-target release archive: no trace of ours" 0 "" -- "$out/quick-release.xcarchive"
 assert "② same-target Debug archive: plugin code in the executable" 1 'FOUND \[maplocal\] .*QuickStart\.app/QuickStart$' -- "$out/quick-debug.xcarchive"
-assert "③ same-target release archive with the Necto check: executable and Necto bundle" 1 'FOUND \[necto\] .*(QuickStart\.app/QuickStart|Necto_NectoDefaultPlugins\.bundle)' -- --include-necto "$out/quick-release.xcarchive"
+assert "③ same-target release archive with the Necto check: Necto in the executable" 1 'FOUND \[necto\] .*QuickStart\.app/QuickStart$' -- --include-necto "$out/quick-release.xcarchive"
 assert "④ separate-project release archive with the Necto check: no trace" 0 "" -- --include-necto "$out/shop-release.xcarchive"
 assert "⑤ release configuration named with debug (ReleaseDebuggable): plugin code in the executable (configuration name rule)" 1 'FOUND \[maplocal\] .*QuickStart\.app/QuickStart$' -- "$out/quick-releasedebuggable.xcarchive"
 
