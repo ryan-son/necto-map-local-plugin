@@ -7,7 +7,7 @@ decisions the code still follows are here; when one changes, change this file wi
 How the panel looks and behaves is decided in [experience.md](experience.md), and how to
 use the plugin is in [usage.md](usage.md).
 
-Upstream references are to Necto 0.2.0, the version this release resolves.
+Upstream references are to Necto 0.2.2, the oldest version this release accepts.
 
 ## Goal
 
@@ -31,7 +31,7 @@ classes it already had (`Sources/NectoMapLocalPlugin/MapLocalInstaller.swift`).
   replacement holds.
 - A configuration whose `protocolClasses` the app replaces outright, as some SDKs do,
   loses the protocol. The app puts it back with `NectoMapLocalPlugin.protocolClass`, the
-  only public way to name it, as Necto offers `NectoURLSessionCapture.protocolClass`.
+  only public way to name it.
   `MapLocalURLProtocol` itself is internal, so it can be renamed or split without
   breaking apps.
 - Why not replace the `protocolClasses` instance getter as well: measured, it also covers
@@ -141,7 +141,7 @@ cannot drift apart silently.
 ## Configuration
 
 **Writes carry the revision they were based on.**
-Necto runs each operation in its own `Task` and does not keep their order (Necto 0.2.0,
+Necto runs each operation in its own `Task` and does not keep their order (Necto 0.2.2,
 `Sources/NectoSDK/NectoSDKRuntime.swift`), and the panel and the CLI can write at the same
 time. Every write sends `baseRevision`; the engine refuses a stale one with `conflict`,
 and applies, saves and broadcasts under one lock in revision order (`MapLocalEngine.apply`).
@@ -307,7 +307,7 @@ Map Local does not resend requests to capture responses. Its manifest binds Nect
 - Why reuse: one capture path in the app instead of two, and the user's Network panel
   and the traffic tab see the same records.
 - This is a cross-plugin binding. Necto's host resolves a device bridge across every
-  plugin of the target (Necto 0.2.0,
+  plugin of the target (Necto 0.2.2,
   `NectoMac/Sources/NectoMacService/NectoPluginRegistry.swift`), but the bridge docs
   describe app bridges as scoped to one plugin. It works on undocumented behaviour, so
   the panel checks availability through `context().operations` on every connection and
@@ -315,22 +315,21 @@ Map Local does not resend requests to capture responses. Its manifest binds Nect
   the foreign bindings, since a mismatched kind is dropped as unavailable without an error.
 - `network-records.clear` is not bound: it would clear the user's Network panel too.
 
-**Registration order: Map Local first, the network plugin after.**
-The URLProtocol registered last is asked first. Necto's observer resends each request on
-`URLSession(configuration: .ephemeral)` (Necto 0.2.0,
-`Sources/NectoURLSessionCapture/NectoURLSessionCapture.swift`). With Map Local first, that
-ephemeral session gets our protocol through the replaced getter, so mocks appear in
-Necto's records with the mocked response and each request is logged once. In the other
-order, mocks disappear from the records and passthroughs are logged twice (measured).
-The panel recognises that signature in live data from the current launch and warns
-(`Panel/src/traffic/order.ts`).
+**Registration order does not matter.**
+Necto's capture hooks `URLSession` and its tasks and watches the transfer the app started
+(Necto 0.2.2, `Sources/NectoURLSessionCapturePlugin/NectoURLSessionHooks.swift`). It
+registers no URLProtocol and resends nothing. A mocked request is still the app's task, so
+it appears in Necto's records with the mocked response, and each request is logged once,
+whichever plugin is registered first (measured). Before 0.2.2, Necto resent each request on
+an ephemeral session: the other order hid mocks and logged passthroughs twice, and the panel
+warned about it. The warning went when 0.2.2 became the minimum.
 
 **Each request's result is attributed carefully** (`Panel/src/traffic/store.ts`):
 1. The `X-Map-Local` header in the record's detail decides first.
 2. Otherwise the panel pairs the Necto record with our own event of the same method,
    normalized host, path and query that came 0–50 ms after it, using each of our events
-   once. The window is one-sided because our event always followed Necto's in the
-   registration order above.
+   once. The window is one-sided because Necto stamps its record when the task resumes,
+   before our protocol starts loading it (0.1–13 ms later, measured with Necto 0.2.2).
 3. Otherwise, and for a failed request with no headers (which may be a mocked error), the
    result is "unknown". A wrong badge is worse than none.
 Our events carry a `seq` within a launch, and `maplocal.requests.list` returns the last
@@ -466,7 +465,8 @@ nonzero: malformed input is `INVALID_INPUT`, a missing rule or response is
 - The plugin ID is `io.github.ryan-son.maplocal`, reverse-domain under the author's
   GitHub account, and it does not change: Necto treats a new ID as a different plugin with
   its own grants and storage. Operation ids keep the `maplocal.` prefix.
-- Necto is required with `.upToNextMinor(from: "0.2.0")`. Its SDK source API has changed
-  between minors, so a wider range could break builds, and `exact:` would conflict with
+- Necto is required with `.upToNextMinor(from: "0.2.2")`. 0.2.2 is the minimum because it
+  moved URLSession capture into its own product, `NectoURLSessionCapturePlugin`, which the
+  setup names, and stopped resending requests. Its SDK source API has changed between minors, so a wider range could break builds, and `exact:` would conflict with
   the app's own Necto dependency. The weekly `script/check-necto-latest` job tests the
   latest Necto tag and its `@necto/bridge`, and says when a matching release is needed.

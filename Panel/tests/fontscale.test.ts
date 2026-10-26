@@ -9,7 +9,6 @@ import theme from "@necto/bridge/theme.css?raw";
 import components from "@necto/bridge/components.css?raw";
 import { PanelModel } from "../src/model";
 import { View } from "../src/view";
-import { OrderDetector } from "../src/traffic/order";
 import { TrafficStore } from "../src/traffic/store";
 import { configuration, engineState, FakeAPI, rule } from "./fake-api";
 
@@ -52,7 +51,7 @@ function mountAll() {
     copy: async () => true,
     copyField: () => true,
     prefs: { get: () => undefined, set: () => undefined },
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   view.connection = "connected";
   view.networkAvailable = true;

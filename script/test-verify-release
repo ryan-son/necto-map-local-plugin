@@ -63,8 +63,8 @@ expect "--include-necto fails on Necto content" 1 "FOUND \[necto\] .*Sample.app/
 expect "--include-necto after the target works the same" 1 "FOUND \[necto\]" -- "$verify" "$necto" --include-necto
 
 necto_name=$(app nectoname.xcarchive)
-mkdir -p "$necto_name/Products/Applications/Sample.app/Necto_NectoDefaultPlugins.bundle"
-expect "--include-necto fails on a Necto bundle name alone" 1 "FOUND \[necto\] .*Necto_NectoDefaultPlugins.bundle" -- "$verify" --include-necto "$necto_name"
+mkdir -p "$necto_name/Products/Applications/Sample.app/Necto_NectoNetworkPlugin.bundle"
+expect "--include-necto fails on a Necto bundle name alone" 1 "FOUND \[necto\] .*Necto_NectoNetworkPlugin.bundle" -- "$verify" --include-necto "$necto_name"
 
 two=$(app two.xcarchive)
 mkdir -p "$two/Products/Applications/Second.app"

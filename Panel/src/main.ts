@@ -8,7 +8,6 @@ import { connect } from "./connect";
 import { localDrafts, localPrefs } from "./drafts";
 import { t } from "./localization";
 import { PanelModel } from "./model";
-import { OrderDetector } from "./traffic/order";
 import { TrafficStore } from "./traffic/store";
 import { View } from "./view";
 
@@ -64,19 +63,18 @@ async function main() {
   // Request events are drawn by the traffic store through its own onChange.
   const model = new PanelModel(api, (reason) => (reason === "requests" ? undefined : view.render()));
   const store = new TrafficStore(() => view.refreshTraffic());
-  const order = new OrderDetector();
   view = new View(root, model, {
     api,
     drafts: localDrafts(),
     copy,
     copyField,
     prefs: localPrefs(),
-    traffic: { store, order },
+    traffic: { store },
   });
   view.render();
   // The host flushes events queued before ready(). Signal it only after the first
   // subscription is in place, so none of them arrive before there is anyone to hear them.
-  await connect(api, model, view, { store, order }).firstAttempt;
+  await connect(api, model, view, { store }).firstAttempt;
   await necto.ready();
 }
 

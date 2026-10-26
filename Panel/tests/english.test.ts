@@ -5,7 +5,6 @@
 import { afterEach, beforeEach, expect, test } from "vitest";
 import type { Draft, DraftStore } from "../src/drafts";
 import { PanelModel } from "../src/model";
-import { OrderDetector } from "../src/traffic/order";
 import { TrafficStore } from "../src/traffic/store";
 import type { NetworkSummary } from "../src/types";
 import { View } from "../src/view";
@@ -37,7 +36,7 @@ function mount(api = new FakeAPI(), connected = true) {
     copy: async () => true,
     copyField: () => true,
     prefs: { get: () => undefined, set: () => undefined },
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   if (connected) {
     view.connection = "connected";

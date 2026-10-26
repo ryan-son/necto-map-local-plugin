@@ -21,7 +21,6 @@ import { ko } from "../src/localization";
 import { PanelModel } from "../src/model";
 import { View } from "../src/view";
 import { formatClock } from "../src/traffic/format";
-import { OrderDetector } from "../src/traffic/order";
 import { TrafficStore } from "../src/traffic/store";
 import { configuration, engineState, FakeAPI, rule } from "./fake-api";
 
@@ -1542,7 +1541,6 @@ test("capture copies token values as they are and does not claim to hide them", 
 
 test("Esc does not clear the traffic selection while the traffic tab is hidden", () => {
   const store = new TrafficStore(() => view.refreshTraffic());
-  const order = new OrderDetector();
   document.body.innerHTML = '<div id="app"></div>';
   const api = new FakeAPI();
   let view!: View;
@@ -1553,7 +1551,7 @@ test("Esc does not clear the traffic selection while the traffic tab is hidden",
     copy: async () => true,
     copyField: () => true,
     prefs: noPrefs,
-    traffic: { store, order },
+    traffic: { store },
   });
   view.connection = "connected";
   model.receiveState(api.current);
@@ -1590,7 +1588,7 @@ test("does not draw store changes while the traffic tab is hidden, and shows the
     copy: async () => true,
     copyField: () => true,
     prefs: noPrefs,
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   view.connection = "connected";
   model.receiveState(api.current);
@@ -1609,46 +1607,6 @@ test("does not draw store changes while the traffic tab is hidden, and shows the
   expect(root.querySelector(".ml-traffic")).toBeNull();
   click($(root, '[data-tab="traffic"]'));
   expect(root.querySelectorAll(".ml-traffic-group")).toHaveLength(1);
-});
-
-test("shows the banner when order-warning evidence gathered on the rules tab holds after the traffic tab opens", () => {
-  vi.setSystemTime(10_000);
-  const store = new TrafficStore(() => view.refreshTraffic());
-  const order = new OrderDetector();
-  document.body.innerHTML = '<div id="app"></div>';
-  const api = new FakeAPI();
-  let view!: View;
-  const model = new PanelModel(api, () => view.render());
-  view = new View(document.getElementById("app")!, model, {
-    api,
-    drafts: memoryDrafts(),
-    copy: async () => true,
-    copyField: () => true,
-    prefs: noPrefs,
-    traffic: { store, order },
-  });
-  view.connection = "connected";
-  model.receiveState(api.current);
-  const root = document.getElementById("app")!;
-  order.networkStarted();
-  vi.setSystemTime(12_000); // After the grace period that follows the subscription
-  for (const seq of [1, 2, 3]) {
-    const e = {
-      seq,
-      date: 10_000 + seq,
-      method: "GET",
-      host: "maplocal.invalid",
-      path: "/m",
-      query: {},
-      outcome: { mocked: { rule: "r", response: "ok" } },
-    };
-    order.liveOurs(e);
-    store.ingestOurs([e]);
-  }
-  click($(root, '[data-tab="traffic"]'));
-  expect(root.querySelector('[data-warning="order"]')).toBeNull();
-  vi.advanceTimersByTime(1500);
-  expect(root.querySelector('[data-warning="order"]')).not.toBeNull();
 });
 
 describe("the rule editor shows the latest request the rule is meant for, so a change is confirmed where it was made", () => {
@@ -1809,7 +1767,7 @@ function mountTraffic(api = new FakeAPI()) {
     copy: async () => true,
     copyField: () => true,
     prefs: noPrefs,
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   view.connection = "connected";
   view.networkAvailable = true;
@@ -3243,7 +3201,7 @@ describe("keyboard: the rule list, tabs and redraws (principles 2 and 9)", () =>
       copy: async () => true,
       copyField: () => true,
       prefs: noPrefs,
-      traffic: { store, order: new OrderDetector() },
+      traffic: { store },
     });
     view.connection = "connected";
     model.receiveState(api.current);
@@ -4267,7 +4225,7 @@ test("focus goes to the primary action when the traffic detail arrives, even if 
     copy: async () => true,
     copyField: () => true,
     prefs: noPrefs,
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   view.connection = "connected";
   view.networkAvailable = true;
@@ -4345,7 +4303,7 @@ test("a mock made from our record stays created when the request pairs with a Ne
     copy: async () => true,
     copyField: () => true,
     prefs: noPrefs,
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   view.connection = "connected";
   view.networkAvailable = true;
@@ -4494,7 +4452,7 @@ describe("dialogs are fully keyboard-operable (K2)", () => {
       copy: async () => true,
       copyField: () => true,
       prefs: noPrefs,
-      traffic: { store, order: new OrderDetector() },
+      traffic: { store },
     });
     view.connection = "connected";
     model.receiveState(api.current);
@@ -4548,7 +4506,7 @@ test("WebKit's Tab skips buttons and checkboxes — every control in the experie
     copy: async () => true,
     copyField: () => true,
     prefs: noPrefs,
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   view.connection = "connected";
   view.networkAvailable = true;
@@ -5173,7 +5131,7 @@ test("clicking 'Pause' while new requests pour in pauses on the first click, bec
     copy: async () => true,
     copyField: () => true,
     prefs: noPrefs,
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   view.connection = "connected";
   model.receiveState(api.current);
@@ -5212,7 +5170,7 @@ test("clicking 'Show newest' while new requests pour in works on the first click
     copy: async () => true,
     copyField: () => true,
     prefs: noPrefs,
-    traffic: { store, order: new OrderDetector() },
+    traffic: { store },
   });
   view.connection = "connected";
   model.receiveState(api.current);
