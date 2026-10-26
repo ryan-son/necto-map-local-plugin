@@ -721,7 +721,18 @@ test("the time view does not rebuild existing row nodes when a new request arriv
   expect([...root.querySelectorAll(".ml-traffic-row")].map((e) => e.getAttribute("data-key"))).toEqual(["2", "1"]);
 });
 
-const mocked = (seq: number, date: number, path = "/m"): RequestEvent => ({
+test("the tab's grid has one row per child, and the list and detail get the flexible last row", () => {
+  // In an auto row the list (flex: 1 1 0) and the detail collapse to no height. jsdom does
+  // no layout, so this pins the row count to what render() draws.
+  const { root } = mount();
+  const tab = $(root, ".ml-traffic");
+  const rows = css.match(/\.ml-traffic\s*\{[^}]*grid-template-rows:\s*([^;]+);/)?.[1].trim().split(/\s+/);
+  expect(rows).toHaveLength(tab.children.length);
+  expect(rows?.at(-1)).toBe("1fr");
+  expect(tab.lastElementChild?.classList.contains("ml-traffic-main")).toBe(true);
+});
+
+const mocked =(seq: number, date: number, path = "/m"): RequestEvent => ({
   seq,
   date,
   method: "GET",
