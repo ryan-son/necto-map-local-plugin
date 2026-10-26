@@ -49,9 +49,9 @@ the App Store. When you finish, your app shows a response you edited in the pane
 
 ### Requirements
 
-- [Necto](https://github.com/toss/necto) 0.2.x (0.2.0 or later, and earlier than 0.3.0),
+- [Necto](https://github.com/toss/necto) 0.2.x (0.2.2 or later, and earlier than 0.3.0),
   for both the Mac app and the SDK the app links. The package declares
-  `.upToNextMinor(from: "0.2.0")`. A new Necto minor version, such as 0.3.0, needs a
+  `.upToNextMinor(from: "0.2.2")`. A new Necto minor version, such as 0.3.0, needs a
   matching release of this plugin.
 - iOS 17 or later for the app. The engine and the tests also build on macOS 14.
 - Xcode 26 or later. We measured the build configuration name rule and the release checks
@@ -67,26 +67,27 @@ the App Store. When you finish, your app shows a response you edited in the pane
    ```swift
    dependencies: [
        .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.2.0"),
-       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.0")),
+       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.2")),
    ],
    // the app target's dependencies
    .product(name: "NectoMapLocalPlugin", package: "necto-map-local-plugin"),
    .product(name: "NectoSDK", package: "necto"),
+   .product(name: "NectoURLSessionCapturePlugin", package: "necto"),  // optional, step 2
    ```
-2. Register Map Local at app startup. Necto's network plugin is optional. Register it after
-   Map Local to see real responses and to start a rule from one. It has a cost
-   ([Capturing real responses](docs/usage.md#capturing-real-responses)).
+2. Register Map Local at app startup. Necto's network plugin is optional. Link
+   `NectoURLSessionCapturePlugin` and register it to see real responses and to start a rule
+   from one ([Capturing real responses](docs/usage.md#capturing-real-responses)).
    ```swift
    #if DEBUG
    import NectoSDK
    import NectoMapLocalPlugin
-   import NectoURLSessionCapture
+   import NectoURLSessionCapturePlugin
    #endif
 
    // App.init or any other earliest point
    #if DEBUG
    NectoSDK.register(NectoMapLocalPlugin())
-   NectoSDK.register(URLSessionNetworkPlugin())  // optional, after Map Local
+   NectoSDK.register(URLSessionNetworkPlugin())  // optional
    NectoSDK.start()
    #endif
    ```

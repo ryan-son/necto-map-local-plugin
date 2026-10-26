@@ -47,8 +47,8 @@
 
 ### 요구 사항
 
-- [Necto](https://github.com/toss/necto) 0.2.x(0.2.0 이상 0.3.0 미만). Mac 앱과 앱이
-  링크하는 SDK 모두예요. 패키지는 `.upToNextMinor(from: "0.2.0")`을 선언해요. Necto의 새
+- [Necto](https://github.com/toss/necto) 0.2.x(0.2.2 이상 0.3.0 미만). Mac 앱과 앱이
+  링크하는 SDK 모두예요. 패키지는 `.upToNextMinor(from: "0.2.2")`을 선언해요. Necto의 새
   마이너 버전(0.3.0 등)에는 이 플러그인의 대응 릴리스가 필요해요.
 - 앱은 iOS 17 이상. 엔진과 테스트는 macOS 14에서도 빌드돼요.
 - Xcode 26 이상. 빌드 구성 이름 규칙과 배포 검사는 Xcode 26에서 실측했고, Xcode 27.1
@@ -64,26 +64,27 @@
    ```swift
    dependencies: [
        .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.2.0"),
-       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.0")),
+       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.2")),
    ],
    // 앱 타깃의 dependencies
    .product(name: "NectoMapLocalPlugin", package: "necto-map-local-plugin"),
    .product(name: "NectoSDK", package: "necto"),
+   .product(name: "NectoURLSessionCapturePlugin", package: "necto"),  // 선택, 2단계
    ```
-2. 앱 시작 시점에 Map Local을 등록해요. Necto 네트워크 플러그인은 선택이에요. Map Local
-   뒤에 등록하면 실제 응답을 보고 그 응답으로 규칙을 시작할 수 있어요. 대신 치르는 비용이
-   있어요([실제 응답 캡처하기](docs/usage-ko.md#실제-응답-캡처하기)).
+2. 앱 시작 시점에 Map Local을 등록해요. Necto 네트워크 플러그인은 선택이에요.
+   `NectoURLSessionCapturePlugin`을 링크하고 등록하면 실제 응답을 보고 그 응답으로 규칙을
+   시작할 수 있어요([실제 응답 캡처하기](docs/usage-ko.md#실제-응답-캡처하기)).
    ```swift
    #if DEBUG
    import NectoSDK
    import NectoMapLocalPlugin
-   import NectoURLSessionCapture
+   import NectoURLSessionCapturePlugin
    #endif
 
    // App.init 등 가장 이른 시점
    #if DEBUG
    NectoSDK.register(NectoMapLocalPlugin())
-   NectoSDK.register(URLSessionNetworkPlugin())  // 선택, Map Local 뒤에
+   NectoSDK.register(URLSessionNetworkPlugin())  // 선택
    NectoSDK.start()
    #endif
    ```

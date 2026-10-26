@@ -146,40 +146,35 @@ traffic detail says which condition failed and shows the fix beside it.
 
 ### Capturing real responses
 
-To see the real response (status, headers, body) and have it filled into a new rule,
-register Necto's network plugin **after** Map Local:
+To see the real response (status, headers, body) and have it filled into a new rule, link
+`NectoURLSessionCapturePlugin` from Necto and register Necto's network plugin:
 
 ```swift
 #if DEBUG
-import NectoURLSessionCapture   // URLSessionNetworkPlugin lives in this module
+import NectoURLSessionCapturePlugin   // URLSessionNetworkPlugin lives in this module
 #endif
 
 #if DEBUG
-NectoSDK.register(NectoMapLocalPlugin())      // first
-NectoSDK.register(URLSessionNetworkPlugin())  // after
+NectoSDK.register(NectoMapLocalPlugin())
+NectoSDK.register(URLSessionNetworkPlugin())
 NectoSDK.start()
 #endif
 ```
 
-The order matters (measured with Necto 0.2.0):
+Measured with Necto 0.2.2:
 
-- With Map Local first, mocked requests appear in the "Traffic" tab with the mocked
-  response. Each request is logged once.
-- With the network plugin first, mocked requests disappear from the "Traffic" tab, and
-  requests that go to the real server are logged twice. The panel shows a warning when
-  mocked requests are missing from Necto's records, or when requests that go to the real
-  server are logged twice.
+- Mocked requests appear in the "Traffic" tab with the mocked response, and each request
+  is logged once. Which plugin is registered first makes no difference.
 - Without the network plugin, the tab still lists requests, but you cannot see responses.
   A rule created from a request gets an empty 200 JSON response.
 
-The cost: the network plugin resends each request with
-`URLSession(configuration: .ephemeral)`. The resent request skips the app session's
-delegate (auth challenges, pinning), the shared cookies and URLCache. Capturing is
-optional.
+The cost: the network plugin watches the tasks the app's own sessions run, through private
+Foundation hooks. It does not resend requests or change delegates. Necto says not to link
+it into apps that prohibit private APIs. Capturing is optional.
 
 Capturing relies on behavior that Necto does not document. The panel calls bridges that
 belong to another plugin: `necto.device.network-records.*`, from the network plugin.
-Necto 0.2.0 routes them, but Necto's bridge docs describe app bridges as scoped to one
+Necto 0.2.2 routes them, but Necto's bridge docs describe app bridges as scoped to one
 plugin. The panel checks availability on every connection, and shows Necto's reason when
 the records are unavailable. The "Rules" tab keeps working without them. A future Necto
 release could change how these bridges are routed.

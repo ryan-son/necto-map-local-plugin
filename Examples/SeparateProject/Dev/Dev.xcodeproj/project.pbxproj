@@ -266,7 +266,7 @@
 			repositoryURL = "https://github.com/toss/necto.git";
 			requirement = {
 				kind = exactVersion;
-				version = 0.2.1;
+				version = 0.2.2;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

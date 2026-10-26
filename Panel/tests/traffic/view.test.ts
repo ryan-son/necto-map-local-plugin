@@ -3,7 +3,6 @@
 //
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { OrderDetector } from "../../src/traffic/order";
 import { TrafficStore } from "../../src/traffic/store";
 import { TrafficView, type TrafficDeps } from "../../src/traffic/view";
 import css from "../../src/style.css?raw";
@@ -28,7 +27,6 @@ function mount(allowed: string[] = ["api.invalid"], over: Partial<TrafficDeps> =
   const store = new TrafficStore(() => view?.refreshList());
   const deps: TrafficDeps = {
     store,
-    order: new OrderDetector(),
     allowedHosts: () => allowed,
     isBlockedHost: () => false,
     addAllowedHost: vi.fn(),
@@ -679,30 +677,6 @@ test("group rows have no active response picker — the response in use is chose
   expect(root.querySelector(".ml-traffic-list select")).toBeNull();
 });
 
-test("shows the warning banner when the registration-order warning holds", () => {
-  vi.setSystemTime(0);
-  const { root, deps, view } = mount();
-  deps.order.networkStarted();
-  vi.setSystemTime(2000); // After the grace period that follows the subscription
-  for (const [i, at] of [
-    [1, 100],
-    [2, 200],
-    [3, 300],
-  ])
-    deps.order.liveOurs({
-      seq: i,
-      date: at,
-      method: "GET",
-      host: "api.invalid",
-      path: "/m",
-      query: {},
-      outcome: { mocked: { rule: "r", response: "ok" } },
-    });
-  vi.setSystemTime(5000);
-  view.render();
-  expect($(root, '[data-warning="order"]')).not.toBeNull();
-});
-
 test("the detail updates in place when a pending request selected in the time view finishes, even while paused", async () => {
   const { root, store, deps } = mount();
   click($(root, '[data-mode="time"]'));
@@ -755,20 +729,6 @@ const mocked = (seq: number, date: number, path = "/m"): RequestEvent => ({
   path,
   query: {},
   outcome: { mocked: { rule: "r", response: "ok" } },
-});
-
-test("the banner appears without an explicit redraw when the registration-order warning holds after mounting", () => {
-  vi.setSystemTime(10_000);
-  const { root, store, deps } = mount();
-  deps.order.networkStarted();
-  vi.setSystemTime(12_000); // After the grace period that follows the subscription
-  for (const i of [1, 2, 3]) {
-    deps.order.liveOurs(mocked(i, 10_000 + i));
-    store.ingestOurs([mocked(i, 10_000 + i)]);
-  }
-  expect(root.querySelector('[data-warning="order"]')).toBeNull();
-  vi.advanceTimersByTime(1500);
-  expect(root.querySelector('[data-warning="order"]')).not.toBeNull();
 });
 
 test("the detail's capture button uses the plan's wording, and when blocked it is disabled with the reason in a tooltip", async () => {

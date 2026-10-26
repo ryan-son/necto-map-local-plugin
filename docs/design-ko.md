@@ -6,7 +6,7 @@
 결정이 바뀌면 이 문서도 함께 고쳐요. 패널이 어떻게 보이고 동작하는지는
 [experience-ko.md](experience-ko.md)가, 플러그인 사용법은 [usage-ko.md](usage-ko.md)가 정해요.
 
-상류(Necto) 참조는 Necto 0.2.0 기준이에요. 이 릴리스는 0.2.1을 해석하는데, 0.2.1은 UI Control의 터치 주입만 바꿨고 여기서 인용한 파일은 바뀌지 않았어요.
+상류(Necto) 참조는 이 릴리스가 받아들이는 가장 오래된 버전인 Necto 0.2.2 기준이에요.
 
 ## 목표
 
@@ -27,8 +27,7 @@ Necto 패널에서 엔드포인트 응답을 정하면 실행 중인 앱이 다�
 - `static let` 뒤의 `method_setImplementation`인 이유: 플러그인은 여러 번 생성될 수 있어요.
   구현 교환(exchange)은 두 번째 호출에서 원래대로 돌아가고, 한 번의 교체는 유지돼요.
 - 앱이 `protocolClasses`를 통째로 바꾼 구성은(일부 SDK가 그렇게 해요) 우리 프로토콜을 잃어요.
-  앱은 `NectoMapLocalPlugin.protocolClass`로 되살려요. Necto가
-  `NectoURLSessionCapture.protocolClass`를 내놓듯, 이것이 그 클래스를 가리키는 유일한 공개
+  앱은 `NectoMapLocalPlugin.protocolClass`로 되살려요. 이것이 그 클래스를 가리키는 유일한 공개
   통로예요. `MapLocalURLProtocol` 자체는 internal이라 앱을 깨지 않고 이름을 바꾸거나 나눌 수 있어요.
 - `protocolClasses` 인스턴스 getter까지 바꾸지 않는 이유: 실측해 보면 등록 전에 만든 세션과
   통째로 바꾼 목록도 덮지만, CFNetwork가 세션을 만든 뒤 그 getter를 읽기 때문에만 동작해요.
@@ -123,7 +122,7 @@ Necto 패널에서 엔드포인트 응답을 정하면 실행 중인 앱이 다�
 ## 설정
 
 **쓰기는 기준 revision을 실어요.**
-Necto는 오퍼레이션마다 별도 `Task`를 만들어 순서를 지키지 않고(Necto 0.2.0,
+Necto는 오퍼레이션마다 별도 `Task`를 만들어 순서를 지키지 않고(Necto 0.2.2,
 `Sources/NectoSDK/NectoSDKRuntime.swift`), 패널과 CLI가 동시에 쓸 수 있어요. 모든 쓰기는
 `baseRevision`을 보내고, 엔진은 낡은 값을 `conflict`로 거부하며, 반영·저장·방송을 한 잠금
 안에서 revision 순서로 해요(`MapLocalEngine.apply`). 패널은 쓰기를 하나씩 보내고 충돌은 한
@@ -268,26 +267,26 @@ Map Local은 응답을 얻으려고 요청을 다시 보내지 않아요. 매니
 - 재사용하는 이유: 앱 안의 캡처 경로가 둘이 아니라 하나이고, 사용자의 Network 패널과 트래픽
   탭이 같은 기록을 봐요.
 - 다른 플러그인에 바인딩하는 거예요. Necto 호스트는 디바이스 브리지를 타깃의 모든 플러그인에서
-  찾지만(Necto 0.2.0, `NectoMac/Sources/NectoMacService/NectoPluginRegistry.swift`), 브리지 문서는
+  찾지만(Necto 0.2.2, `NectoMac/Sources/NectoMacService/NectoPluginRegistry.swift`), 브리지 문서는
   앱 브리지가 한 플러그인 범위라고 적어요. 문서에 없는 동작에 기대므로, 패널은 연결마다
   `context().operations`로 사용 가능 여부를 보고 Necto의 `unavailableReason`을 보여요
   (`Panel/src/api.ts`). kind가 다르면 오류 없이 사용 불가로 떨어지므로 `PanelTests`가 다른
   플러그인 바인딩의 kind를 고정해요.
 - `network-records.clear`는 바인딩하지 않아요. 사용자의 Network 패널 기록까지 지워요.
 
-**등록 순서: Map Local 먼저, 네트워크 플러그인은 나중에.**
-나중에 등록된 URLProtocol이 먼저 조회돼요. Necto 관찰자는 요청을
-`URLSession(configuration: .ephemeral)`로 다시 보내요(Necto 0.2.0,
-`Sources/NectoURLSessionCapture/NectoURLSessionCapture.swift`). Map Local이 먼저면 그 ephemeral
-세션이 바뀐 getter로 우리 프로토콜을 받아, 목업이 Necto 기록에 목업 응답 그대로 보이고 요청마다
-한 번씩 기록돼요. 반대 순서면 목업이 기록에서 사라지고 통과 요청이 두 번 기록돼요(실측). 패널은
-이번 실행의 실시간 데이터에서 그 서명을 알아보고 경고해요(`Panel/src/traffic/order.ts`).
+**등록 순서는 상관없어요.**
+Necto 캡처는 `URLSession`과 그 작업을 훅으로 걸어 앱이 시작한 전송을 지켜봐요(Necto 0.2.2,
+`Sources/NectoURLSessionCapturePlugin/NectoURLSessionHooks.swift`). URLProtocol을 등록하지 않고
+아무것도 다시 보내지 않아요. 목업된 요청도 앱의 작업이라 Necto 기록에 목업 응답 그대로 보이고,
+어느 플러그인을 먼저 등록하든 요청마다 한 번씩 기록돼요(실측). 0.2.2 전에는 Necto가 요청을
+ephemeral 세션으로 다시 보내서, 반대 순서면 목업이 기록에서 사라지고 통과 요청이 두 번
+기록됐고 패널이 이를 경고했어요. 0.2.2가 최소 버전이 되면서 그 경고는 없앴어요.
 
 **요청마다 결과를 조심스럽게 붙여요**(`Panel/src/traffic/store.ts`):
 1. 기록 상세의 `X-Map-Local` 헤더가 먼저 정해요.
 2. 없으면 Necto 기록과, 메서드·정규화한 호스트·경로·쿼리가 같고 0–50ms 뒤에 온 우리 기록을
-   짝지어요. 우리 기록 하나는 한 번만 써요. 위 등록 순서에서 우리 기록이 늘 Necto 기록 뒤에
-   왔으므로 한쪽 창이에요.
+   짝지어요. 우리 기록 하나는 한 번만 써요. Necto는 작업이 resume될 때 기록 시각을 찍고 우리
+   프로토콜은 그 뒤에 로딩을 시작하므로 한쪽 창이에요(Necto 0.2.2에서 0.1–13ms 뒤, 실측).
 3. 그래도 없으면, 그리고 헤더 없이 실패한 요청(목업 오류일 수 있어요)은 「모름」이에요. 틀린
    배지는 배지가 없는 것보다 나빠요.
 우리 기록은 실행 안에서 `seq`를 갖고, `maplocal.requests.list`가 최근 500건을 돌려줘 늦게 연
@@ -400,7 +399,9 @@ Cookie·Set-Cookie 헤더, 또는 token·secret·password·api key·session 같�
 - 플러그인 ID는 작성자 GitHub 계정 아래 역도메인인 `io.github.ryan-son.maplocal`이고 바뀌지
   않아요. Necto는 새 ID를 권한과 저장소가 따로인 다른 플러그인으로 봐요. 오퍼레이션 id는
   `maplocal.` 접두사를 유지해요.
-- Necto는 `.upToNextMinor(from: "0.2.0")`으로 요구해요. 마이너 사이에 SDK 소스 API가 바뀌어
+- Necto는 `.upToNextMinor(from: "0.2.2")`으로 요구해요. 0.2.2가 최소인 이유는 URLSession 캡처를
+  설정 안내가 가리키는 별도 product `NectoURLSessionCapturePlugin`으로 옮기고 요청을 다시 보내지
+  않게 됐기 때문이에요. 마이너 사이에 SDK 소스 API가 바뀌어
   왔으므로 범위를 넓히면 빌드가 깨질 수 있고, `exact:`는 앱 자신의 Necto 의존성과 충돌해요.
   매주 도는 `script/check-necto-latest`가 최신 Necto 태그와 그 `@necto/bridge`로 테스트하고,
   맞춘 릴리스가 필요하면 알려요.
