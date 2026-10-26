@@ -57,13 +57,13 @@
 
 ### 단계
 
-1. 앱에 패키지 두 개를 추가해요. 이 패키지(`0.1.0`부터)와
+1. 앱에 패키지 두 개를 추가해요. 이 패키지(`0.2.0`부터)와
    [Necto](https://github.com/toss/necto)(`0.2.x`)예요. 이 패키지의 `NectoMapLocalPlugin`과
    Necto의 `NectoSDK`를 앱 타깃에 링크해요. 앱은 플러그인을 등록할 때 `NectoSDK`를 불러요.
    Xcode에서는 File → Add Package Dependencies를 써요. `Package.swift`라면:
    ```swift
    dependencies: [
-       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.1.0"),
+       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.2.0"),
        .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.2")),
    ],
    // 앱 타깃의 dependencies

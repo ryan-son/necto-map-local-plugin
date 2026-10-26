@@ -3,7 +3,7 @@
   "id": "io.github.ryan-son.maplocal",
   "name": "Map Local",
   "description": "Map endpoint responses in the running app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Geonhee Son",
   "icon": {
     "systemName": "arrow.triangle.branch"
