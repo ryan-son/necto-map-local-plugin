@@ -60,13 +60,13 @@ the App Store. When you finish, your app shows a response you edited in the pane
 
 ### Steps
 
-1. Add two packages to the app: this one (from `0.1.0`) and
+1. Add two packages to the app: this one (from `0.2.0`) and
    [Necto](https://github.com/toss/necto) (`0.2.x`). Link `NectoMapLocalPlugin` from this
    package and `NectoSDK` from Necto to the app target. The app calls `NectoSDK` to register
    the plugin. In Xcode, use File → Add Package Dependencies. In a `Package.swift`:
    ```swift
    dependencies: [
-       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.1.0"),
+       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.2.0"),
        .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.2")),
    ],
    // the app target's dependencies

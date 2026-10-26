@@ -58,7 +58,80 @@ hesitated.>
 <Each check above that was not run, and why.>
 ```
 
-## Unreleased: mocked cookie journal — 2026-10-12
+## 0.2.0 — not tagged yet
+
+Build: the release candidate, once the release prep is merged · Necto 0.2.2 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
+Targets: iOS simulator (iPhone SE (3rd generation), iOS 18.4) · device: none yet
+
+Every row below must be filled on the release candidate before the tag. 0.2.0 adds the
+mocked cookie journal (#4), the narrow header and its follow-ups (#3, #5, #7), wrapping
+response tabs (#6), and requires Necto 0.2.2, whose capture no longer depends on the
+registration order (#11). Checking these rows in Necto found that #11 had hidden the Traffic
+list and detail; #12 fixes it, and the rows marked `7f13900 + #12` ran with that fix. The cookie journal was measured on its archive build (the next entry);
+its rows are rerun here because the commits after the restack were never run in Necto. The
+panel changes were checked only in jsdom and in WebKit outside Necto, which keeps Esc for
+itself.
+
+### Automated
+
+| Check | Result |
+| --- | --- |
+| `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 at the release prep |
+| `swift test` | 91 + 131 tests |
+| `cd Panel && npx vitest run` | 1101 tests (43 order-warning tests removed in #11, one grid-row test added in #12) |
+| Release workflow on GitHub (tag check, CI, assets) | not run yet: runs on the tag |
+
+### In Necto
+
+| Check | Result | Build | Notes |
+| --- | --- | --- | --- |
+| App connected over USB on a device, not only the simulator | not verified yet | | No device at hand on 2026-10-27 |
+| The panel rendered data that started in the app (rules, traffic) | pass after a fix | 7f13900 + #12 | Necto 0.2.2, iPhone SE (3rd generation) simulator on iOS 18.4. At 7f13900 the Traffic tab drew only its toolbar: #11 had left `.ml-traffic` with three grid rows for two children, so the list and detail sat in an auto row with no height. #12 fixed it; with it, rules, hosts and the cookie notice came from the app and the Traffic tab listed the mocked `/json` and the passthrough `/uuid` |
+| A mock applied from the next request, with no relaunch | pass | 7f13900 | iPhone SE (3rd generation) simulator, iOS 18.4, through `necto-cli`. `rule.upsert` at 00:10:04: the request at 00:10:03 passed through, the one at 00:10:07 got the mocked 418 and its `Set-Cookie` |
+| Disconnect fails pending calls instead of hanging | pass | 7f13900 + #12 | `simctl terminate`: Necto dropped the app from the sidebar and closed its panel at once; nothing was left waiting |
+| Reconnect (relaunch the app) without restarting Necto | pass | 7f13900 + #12 | Relaunched three times; the panel came back with the new launch's traffic each time |
+| Light appearance | not verified yet | | Necto follows the macOS appearance, and the system setting was not changed for this run |
+| Dark appearance | pass | 7f13900 + #12 | Every check in this entry ran in dark |
+| Light/dark switch with the panel open, without reloading | not verified yet | | Same reason as light |
+| Default text size | pass | 7f13900 + #12 | 13 pt |
+| Larger text size (Necto's zoom) | pass | 7f13900 + #12 | 16 pt: Traffic list and the rule editor scale with no clipping or overlap |
+| Narrow panel (under 640 px): stacked list and detail, both tabs | pass | 7f13900 + #12 | Rules: list above, editor below. Traffic: list above, detail below |
+| Wide panel (over 1100 px) | pass | 7f13900 + #12 | About 1530 px: list and detail side by side in both tabs |
+| English (Necto language setting) | pass | 7f13900 + #12 | Header, notices, Rules and Traffic in English after switching Necto to English; set back to System afterwards |
+| Korean | pass | 7f13900 + #12 | Necto on System with a Korean macOS |
+| Device badge text follows the device language | not verified | 7f13900 + #12 | On the iPhone SE simulator (Home button) the badge sits in the status bar as usage.md says, but the carrier name and Wi-Fi icon draw over it, so its text can't be read. Never measured on a Home-button device before; not a 0.2.0 change |
+| CLI: `plugin list`, `plugin help`, a write and a refused write | pass | 7f13900 | `plugin list` showed Map Local 0.2.0 and `network-logger`; a `configuration.patch` saved revision 1; the same `baseRevision` again answered `ok:false`, `conflict`. Right after the app connected, `plugin list` said "No plugins in this scope" once, and listed both seconds later |
+| With and without Necto's network plugin registered | pass | 7f13900 + #12 | With it: the mocked body from Necto's records in the detail. Without it (`-noCapture`): requests listed, "Mock with an empty response", and "Register URLSessionNetworkPlugin to see responses" beside Necto's reason |
+| Narrow panel: the hosts button opens and closes the hosts (click outside, focus leaving, Esc if Necto passes it) | pass | 7f13900 + #12 | Opens over the content and closes on a click outside. Necto 0.2.2 keeps Esc, as experience.md records; focus leaving was not tried |
+| No allowed host: the warning on the button (narrow) and in the caption (wider) | pass | 7f13900 + #12 | "허용 호스트 없음 — 추가" on the button, "허용 호스트 없음" in the caption with "+ httpbin.org" offered, both in the warning colour |
+| Ten responses and a long name: tabs wrap, the editor never scrolls sideways | pass | 7f13900 + #12 | Two lines wide, five narrow; the long name cut short with all of it on hover |
+| An undo toast stays above the open hosts in a short panel | pass | 7f13900 + #12 | Short narrow window with 13 hosts open: the hosts stop at half the height and the "Deleted the rule" toast stays in reach below; Undo restored the rule, and a deleted response too |
+| Mocked cookie rows of the next entry, rerun through `necto-cli` | partial | 7f13900 + #12 | Mock over a real `R`: `mockedCookies` 1, app holds `R=mock`. Off: `setAside` 1, `R=real`. On: `reapplied` 1. Discard: `restored` 1, `R=real`. The relaunch and `HttpOnly` rows were not rerun |
+| The panel's cookie notice, discard, and failed-discard banner | partial | 7f13900 + #12 | The notice in use and set aside, and discard, pass. The failed-discard banner needs a failing journal and was not seen |
+| The log-out confirmation's cookie sentence | pass | 7f13900 + #12 | Turning Map Local off with an auth rule and a mocked cookie: "…Mocked cookies are set aside until you turn Map Local on again." |
+| The badge sheet's mocked cookie sentence | not verified | | Covered by `BadgeControlTests` only; the simulator window could not be driven from this session |
+| A mocked request on iOS 17.0–17.4, where the `URLProtocol.task` getter may be missing (#9) | not verified | | 16.4 lacks it and 17.5 has it; the fallback is covered by `URLProtocolTests` through a switch |
+| The `URLProtocol.task` fallback on iOS 16.4 (#9, #10), from `feature/ios-16-support`, which alone supports iOS 16 | pass | a2e2f5e | Xcode 26.3, iPhone 14 Pro simulator, in the consuming app's verification session. Before: SIGABRT on the first mocked request, and xctest crashed with 0 tests run. After: the mocked 404 reached the app with the same pid, no crash report, no real request; `NectoMapLocalPluginTests` 90 of 91, with the first-decision test failing by design, which #10 now skips there |
+| `NectoMapLocalPluginTests` on iOS 16.4 after #10 | pass | 029d39f | 91 run: 90 pass and 1 skipped with "needs the URLProtocol.task getter, which iOS 16.4 lacks"; the two no-getter tests pass |
+| The first mocked request on iOS 17.5 with the fallback in place (no regression where the getter exists) | pass | a2e2f5e | Same app and session as the 16.4 row; mocked response, no crash |
+| Necto 0.2.2 records mocks with the mocked response, and each request once, in either registration order (#11) | pass | 8f07309 | Necto app and SDK 0.2.2, iPhone SE (3rd generation) simulator on iOS 18.4, a QuickStart copy linking `NectoURLSessionCapturePlugin`. Five mocked and five passthrough requests per order, read with `necto-cli`: the same records both ways, `X-Map-Local` and the mocked body in the detail, our event 0.11–12.71 ms after Necto's start |
+
+### Simulation results
+
+Not run yet.
+
+### Not verified
+
+- A device over USB, light appearance and the light/dark switch: no device at hand, and the
+  macOS appearance was left alone.
+- The badge on a Home-button iPhone: its text is covered by the status bar (see its row).
+  The badge sheet was not opened.
+- iOS 17.0–17.4: no such simulator runtime on the machine.
+- The failed-discard banner, and the relaunch and `HttpOnly` cookie rows.
+- The build machine's load average was 475–920 during these runs; `necto-cli` calls
+  sometimes timed out for Map Local and for Necto's own network plugin alike.
+
+## 0.2.0: mocked cookie journal, on the archive build — 2026-10-12
 
 Build: 0ea31ac (branch `feature/mocked-cookie-journal`) · Necto 0.2.0 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
 Targets: iOS simulator (iPhone 18 Pro, iOS 27.0) · device: none
@@ -104,7 +177,7 @@ see the pull request for the counts at its head.
 | recipes.md "Run a QA scenario from an agent", followed as written on a fresh install | pass | 3b0f036 | The copied `configuration.json` applied from the first, pre-attach request; `earlierLaunches` kept that launch's cookie; the end check read `mockedCookies` 0 and `authMocked` false. `simctl terminate` exits nonzero when the app is not running, so the recipe adds `|| true` |
 | The badge sheet's mocked cookie sentence | not verified | | Covered by `BadgeControlTests` only; the sheet was not opened with a mocked cookie in use |
 
-## 0.1.0 — not tagged yet
+## 0.1.0 — 2026-10-05
 
 Build: 7133677 (branch `feature/traffic-tab`) for the automated checks. The checks in Necto
 ran on earlier builds of this branch, named per row, and were rerun on 4897c81 in the new
