@@ -497,7 +497,7 @@ select {
 
 .ml-traffic {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto 1fr;
   min-height: 0;
   height: 100%;
 }
