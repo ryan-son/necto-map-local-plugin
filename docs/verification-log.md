@@ -86,7 +86,7 @@ itself.
 | --- | --- | --- | --- |
 | App connected over USB on a device, not only the simulator | not verified yet | | |
 | The panel rendered data that started in the app (rules, traffic) | not verified yet | | |
-| A mock applied from the next request, with no relaunch | not verified yet | | |
+| A mock applied from the next request, with no relaunch | pass | 7f13900 | iPhone SE (3rd generation) simulator, iOS 18.4, through `necto-cli`. `rule.upsert` at 00:10:04: the request at 00:10:03 passed through, the one at 00:10:07 got the mocked 418 and its `Set-Cookie` |
 | Disconnect fails pending calls instead of hanging | not verified yet | | |
 | Reconnect (relaunch the app) without restarting Necto | not verified yet | | |
 | Light appearance | not verified yet | | |
@@ -99,7 +99,7 @@ itself.
 | English (Necto language setting) | not verified yet | | |
 | Korean | not verified yet | | |
 | Device badge text follows the device language | not verified yet | | |
-| CLI: `plugin list`, `plugin help`, a write and a refused write | not verified yet | | |
+| CLI: `plugin list`, `plugin help`, a write and a refused write | pass | 7f13900 | `plugin list` showed Map Local 0.2.0 and `network-logger`; a `configuration.patch` saved revision 1; the same `baseRevision` again answered `ok:false`, `conflict`. Right after the app connected, `plugin list` said "No plugins in this scope" once, and listed both seconds later |
 | With and without Necto's network plugin registered | not verified yet | | |
 | Narrow panel: the hosts button opens and closes the hosts (click outside, focus leaving, Esc if Necto passes it) | not verified yet | | Esc was measured only in WebKit outside Necto |
 | No allowed host: the warning on the button (narrow) and in the caption (wider) | not verified yet | | |
