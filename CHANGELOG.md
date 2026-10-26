@@ -7,6 +7,8 @@
 - Response tabs wrap onto more lines instead of widening the editor, and a long name is cut short with all of it shown on hover
 - A mocked request no longer ends the app where the OS lacks the `URLProtocol.task` getter (seen on iOS 16.4); there the request is decided again when it starts
 - A custom `ConfigurationStore` must implement `loadCookieJournal()` and `saveCookieJournal(_:)`; there is no default, so a store that keeps no journal doesn't compile
+- Requires Necto 0.2.2. To see real responses, link `NectoURLSessionCapturePlugin` and `import NectoURLSessionCapturePlugin`; Map Local and Necto's network plugin can be registered in either order
+- The traffic tab no longer warns about the registration order, which no longer changes what Necto records
 
 ## 0.1.0
 - Define endpoint responses in a Necto panel and apply them at once: rules, switching responses, delays, errors, and blocking or failing requests without a rule

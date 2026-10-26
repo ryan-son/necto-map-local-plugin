@@ -60,12 +60,13 @@ hesitated.>
 
 ## 0.2.0 — not tagged yet
 
-Build: the release candidate, once the release prep is merged · Necto 0.2.1 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
+Build: the release candidate, once the release prep is merged · Necto 0.2.2 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
 Targets: iOS simulator (iPhone 18 Pro, iOS 27.0) · device: to be decided
 
 Every row below must be filled on the release candidate before the tag. 0.2.0 adds the
-mocked cookie journal (#4), the narrow header and its follow-ups (#3, #5, #7), and wrapping
-response tabs (#6). The cookie journal was measured on its archive build (the next entry);
+mocked cookie journal (#4), the narrow header and its follow-ups (#3, #5, #7), wrapping
+response tabs (#6), and requires Necto 0.2.2, whose capture no longer depends on the
+registration order (#11). The cookie journal was measured on its archive build (the next entry);
 its rows are rerun here because the commits after the restack were never run in Necto. The
 panel changes were checked only in jsdom and in WebKit outside Necto, which keeps Esc for
 itself.
@@ -76,7 +77,7 @@ itself.
 | --- | --- |
 | `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 at the release prep |
 | `swift test` | 91 + 131 tests |
-| `cd Panel && npx vitest run` | 1143 tests |
+| `cd Panel && npx vitest run` | 1100 tests (43 order-warning tests removed in #11) |
 | Release workflow on GitHub (tag check, CI, assets) | not run yet: runs on the tag |
 
 ### In Necto
@@ -112,6 +113,7 @@ itself.
 | The `URLProtocol.task` fallback on iOS 16.4 (#9, #10), from `feature/ios-16-support`, which alone supports iOS 16 | pass | a2e2f5e | Xcode 26.3, iPhone 14 Pro simulator, in the consuming app's verification session. Before: SIGABRT on the first mocked request, and xctest crashed with 0 tests run. After: the mocked 404 reached the app with the same pid, no crash report, no real request; `NectoMapLocalPluginTests` 90 of 91, with the first-decision test failing by design, which #10 now skips there |
 | `NectoMapLocalPluginTests` on iOS 16.4 after #10 | pass | 029d39f | 91 run: 90 pass and 1 skipped with "needs the URLProtocol.task getter, which iOS 16.4 lacks"; the two no-getter tests pass |
 | The first mocked request on iOS 17.5 with the fallback in place (no regression where the getter exists) | pass | a2e2f5e | Same app and session as the 16.4 row; mocked response, no crash |
+| Necto 0.2.2 records mocks with the mocked response, and each request once, in either registration order (#11) | pass | 8f07309 | Necto app and SDK 0.2.2, iPhone SE (3rd generation) simulator on iOS 18.4, a QuickStart copy linking `NectoURLSessionCapturePlugin`. Five mocked and five passthrough requests per order, read with `necto-cli`: the same records both ways, `X-Map-Local` and the mocked body in the detail, our event 0.11–12.71 ms after Necto's start |
 
 ### Simulation results
 
