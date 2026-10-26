@@ -10,7 +10,6 @@ import { formatClock, formatDuration } from "./format";
 import { fullURL, groupKey, sentQuery } from "./keys";
 import { emptyFilters, groups, statusClass, visible, type Filters, type Group, type StatusChip } from "./listing";
 import type { QueryMiss } from "./match";
-import { orderWarningText, type OrderDetector } from "./order";
 import { navigate, optionId, revealSelected, syncActive } from "../listbox";
 import { applySplit, readSplit, splitHandle } from "../split";
 import { isRule, ruleLabel } from "../rules";
@@ -18,7 +17,6 @@ import type { TrafficStore } from "./store";
 
 export interface TrafficDeps {
   store: TrafficStore;
-  order: OrderDetector;
   allowedHosts(): string[];
   /// Whether the app's code blocked this host (`blockedHosts`). Rules for it never mock.
   isBlockedHost(host: string): boolean;
@@ -122,12 +120,9 @@ const statusTone = { "2xx": "ok", "3xx": "info", "4xx": "warning", "5xx": "dange
 const offHostTitle = () => t("Not an allowed host, so mocking and blocking don't apply");
 const slowMs = 1000;
 const detailCacheSize = 20;
-const pluginMissing = () => t("Register URLSessionNetworkPlugin after Map Local to see responses");
+const pluginMissing = () => t("Register URLSessionNetworkPlugin to see responses");
 const recordGone = () => t("The app has dropped this record (app relaunch or storage limit)");
 const notInNecto = () => t("This request isn't in Necto's records, so its response can't be shown");
-/// The order warning needs evidence to settle for a second, so check again after the last
-/// update.
-const warningRecheckMs = 1100;
 
 interface HeldFocus { focus: Focus | undefined; inDetail: boolean }
 
@@ -301,7 +296,6 @@ export class TrafficView {
   private chosenPath?: { key: string; path: string };
   /// The request whose capture is limited to its query. Selecting another request resets it.
   private queryOnly?: string;
-  private warningTimer?: ReturnType<typeof setTimeout>;
   /// Bumped on every new launch, so details still loading from the previous launch are
   /// dropped.
   private epoch = 0;
@@ -488,11 +482,10 @@ export class TrafficView {
       this.detailPane(),
     );
     applySplit(main, this.listRatio);
-    this.root.replaceChildren(h("div", { class: "ml-traffic" }, this.warning(), this.toolbar(), main));
+    this.root.replaceChildren(h("div", { class: "ml-traffic" }, this.toolbar(), main));
     this.syncEmpty();
     this.syncOpen();
     this.regainFocus(held);
-    this.armWarningRecheck();
   }
 
   private listbox(): HTMLElement | null {
@@ -500,7 +493,7 @@ export class TrafficView {
   }
 
   /// After rules or allowed hosts change: keeps the list's nodes and scroll, and redraws the
-  /// toolbar, warning and detail from current values.
+  /// toolbar and detail from current values.
   update() {
     const list = this.listBody();
     const bar = this.root.querySelector(".ml-traffic-toolbar");
@@ -509,7 +502,6 @@ export class TrafficView {
     this.followRekey();
     this.followNewest();
     const held = this.holdFocus();
-    this.redrawWarning();
     const anchor = this.anchor();
     this.patchList(list);
     syncActive(this.listbox());
@@ -518,7 +510,6 @@ export class TrafficView {
     this.swapDetail();
     this.regainFocus(held);
     this.keep(anchor); // after regaining focus, which resets the list's scrollTop
-    this.armWarningRecheck();
   }
 
   /// Redraws the list. The detail is redrawn only when the selected request, its state or
@@ -531,7 +522,6 @@ export class TrafficView {
     this.followRekey();
     this.followNewest();
     const held = this.holdFocus();
-    this.redrawWarning();
     const anchor = this.anchor();
     this.patchList(list);
     syncActive(this.listbox());
@@ -549,7 +539,6 @@ export class TrafficView {
     else this.root.querySelector(".ml-sample-nav")?.replaceWith(this.sampleNav());
     this.regainFocus(held);
     this.keep(anchor); // after regaining focus, which resets the list's scrollTop
-    this.armWarningRecheck();
   }
 
   private setMode(mode: Mode) {
@@ -701,33 +690,6 @@ export class TrafficView {
     if (!entry) return [];
     const key = groupKey(entry);
     return this.deps.store.entries().filter((sample) => groupKey(sample) === key);
-  }
-
-  private warning() {
-    return h(
-      "div",
-      { class: "ml-order-warning" },
-      this.deps.order.warning() &&
-        h(
-          "div",
-          { class: "necto-notice necto-notice-danger", "data-warning": "order" },
-          orderWarningText(),
-        ),
-    );
-  }
-
-  private redrawWarning() {
-    this.root.querySelector(".ml-order-warning")?.replaceWith(this.warning());
-  }
-
-  /// Evidence may not have settled when drawing, including any gathered while the tab was
-  /// hidden, so check again even if no new request arrives.
-  private armWarningRecheck() {
-    clearTimeout(this.warningTimer);
-    this.warningTimer = setTimeout(() => {
-      this.warningTimer = undefined;
-      if (this.shown()) this.redrawWarning();
-    }, warningRecheckMs);
   }
 
   // -- toolbar ----------------------------------------------------------------

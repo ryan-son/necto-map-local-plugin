@@ -208,8 +208,6 @@ export const ko: Record<string, string> = {
   "Live · new requests show up at once": "실시간 · 새 요청을 바로 보여 줍니다",
   "Paused · no new requests": "일시정지됨 · 새 요청 없음",
   "Paused · new requests: {count}": "일시정지됨 · 새 요청 {count}개",
-  "Mocked requests don't appear in Necto's records. Either Necto's network plugin was registered before Map Local, or the app uses a session other than URLSession.shared. Put NectoSDK.register(NectoMapLocalPlugin()) first":
-    "목업 요청이 Necto 기록에 보이지 않습니다. Necto 네트워크 플러그인이 Map Local보다 먼저 등록됐거나, 앱이 URLSession.shared가 아닌 세션을 씁니다. NectoSDK.register(NectoMapLocalPlugin())을 먼저 두세요",
 
   // Traffic list
   "Request list": "요청 목록",
@@ -246,8 +244,8 @@ export const ko: Record<string, string> = {
   "Older call": "더 이전 호출",
   "New call available": "새 호출 있음",
   "Show newest": "최신 보기",
-  "Register URLSessionNetworkPlugin after Map Local to see responses":
-    "URLSessionNetworkPlugin을 Map Local 다음에 등록하면 응답을 볼 수 있습니다",
+  "Register URLSessionNetworkPlugin to see responses":
+    "URLSessionNetworkPlugin을 등록하면 응답을 볼 수 있습니다",
   "This request isn't in Necto's records, so its response can't be shown":
     "Necto 기록에 없는 요청이라 응답을 볼 수 없습니다",
   "The app has dropped this record (app relaunch or storage limit)":

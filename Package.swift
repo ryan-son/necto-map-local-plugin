@@ -15,7 +15,7 @@ let package = Package(
         .library(name: "NectoMapLocalPlugin", targets: ["NectoMapLocalPlugin"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.0")),
+        .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.2")),
         // Only the tests use it. No product target depends on it.
         .package(url: "https://github.com/pointfreeco/swift-clocks", from: "1.0.0"),
     ],
