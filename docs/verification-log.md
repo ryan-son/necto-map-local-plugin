@@ -78,7 +78,7 @@ itself.
 | --- | --- |
 | `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 at the release prep |
 | `swift test` | 91 + 131 tests |
-| `cd Panel && npx vitest run` | 1100 tests (43 order-warning tests removed in #11) |
+| `cd Panel && npx vitest run` | 1101 tests (43 order-warning tests removed in #11, one grid-row test added in #12) |
 | Release workflow on GitHub (tag check, CI, assets) | not run yet: runs on the tag |
 
 ### In Necto
