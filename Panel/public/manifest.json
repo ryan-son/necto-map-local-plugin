@@ -874,7 +874,7 @@
     {
       "id": "maplocal.requests.list",
       "title": "Recent requests",
-      "description": "Returns the most recent requests since launch, newest last, up to limit (default and most 500). lastSeq is the seq of the newest event.",
+      "description": "Returns the most recent requests since launch, newest first, up to limit (default and most 500). lastSeq is the seq of the newest event.",
       "kind": "once",
       "binding": {
         "name": "necto.device.maplocal.requests.list",
