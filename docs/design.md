@@ -7,7 +7,10 @@ decisions the code still follows are here; when one changes, change this file wi
 How the panel looks and behaves is decided in [experience.md](experience.md), and how to
 use the plugin is in [usage.md](usage.md).
 
-Upstream references are to Necto 0.2.2, the oldest version this release accepts.
+Upstream references are to Necto 0.2.2, the oldest version this release accepts. Necto
+0.3.0 moved the iOS sources without changing them: `Sources/NectoSDK` is
+`SDK/iOS/Sources/NectoSDK` there, and `Sources/NectoURLSessionCapturePlugin` is
+`SDK/Plugins/URLSessionCapture/iOS`.
 
 ## Goal
 
@@ -465,8 +468,14 @@ nonzero: malformed input is `INVALID_INPUT`, a missing rule or response is
 - The plugin ID is `io.github.ryan-son.maplocal`, reverse-domain under the author's
   GitHub account, and it does not change: Necto treats a new ID as a different plugin with
   its own grants and storage. Operation ids keep the `maplocal.` prefix.
-- Necto is required with `.upToNextMinor(from: "0.2.2")`. 0.2.2 is the minimum because it
-  moved URLSession capture into its own product, `NectoURLSessionCapturePlugin`, which the
-  setup names, and stopped resending requests. Its SDK source API has changed between minors, so a wider range could break builds, and `exact:` would conflict with
-  the app's own Necto dependency. The weekly `script/check-necto-latest` job tests the
-  latest Necto tag and its `@necto/bridge`, and says when a matching release is needed.
+- Necto is required with `"0.2.2"..<"0.4.0"`. 0.2.2 is the minimum because it moved
+  URLSession capture into its own product, `NectoURLSessionCapturePlugin`, which the setup
+  names, and stopped resending requests. Its SDK source API has changed between minors, so
+  the range is closed at the next minor not yet checked, and `exact:` would conflict with
+  the app's own Necto dependency. 0.3.0 is in the range because its iOS SDK sources and
+  wire protocol are those of 0.2.2, moved under `SDK/`; only manifest origin validation
+  became stricter, and the panel declares `self`. `Package.resolved` stays on the minimum,
+  so `swift test` in CI covers it, while the example apps pin the newest accepted version,
+  which `script/verify-controls` archives. The weekly `script/check-necto-latest` job tests
+  the latest Necto tag and its `@necto/bridge`, and says when a matching release is
+  needed.

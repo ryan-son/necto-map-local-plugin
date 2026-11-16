@@ -47,9 +47,9 @@
 
 ### 요구 사항
 
-- [Necto](https://github.com/toss/necto) 0.2.x(0.2.2 이상 0.3.0 미만). Mac 앱과 앱이
-  링크하는 SDK 모두예요. 패키지는 `.upToNextMinor(from: "0.2.2")`을 선언해요. Necto의 새
-  마이너 버전(0.3.0 등)에는 이 플러그인의 대응 릴리스가 필요해요.
+- [Necto](https://github.com/toss/necto) 0.2.x 또는 0.3.x(0.2.2 이상 0.4.0 미만). Mac 앱과
+  앱이 링크하는 SDK 모두예요. 패키지는 `"0.2.2"..<"0.4.0"`을 선언해요. Necto의 새 마이너
+  버전(0.4.0 등)에는 이 플러그인의 대응 릴리스가 필요해요.
 - 앱은 iOS 16 이상. 엔진과 테스트는 macOS 14에서도 빌드돼요.
 - Xcode 26 이상. 빌드 구성 이름 규칙과 배포 검사는 Xcode 26에서 실측했고, Xcode 27.1
   베타에서도 통과해요. CI는 Xcode 26에서 돌아요.
@@ -57,14 +57,14 @@
 
 ### 단계
 
-1. 앱에 패키지 두 개를 추가해요. 이 패키지(`0.2.0`부터)와
-   [Necto](https://github.com/toss/necto)(`0.2.x`)예요. 이 패키지의 `NectoMapLocalPlugin`과
-   Necto의 `NectoSDK`를 앱 타깃에 링크해요. 앱은 플러그인을 등록할 때 `NectoSDK`를 불러요.
-   Xcode에서는 File → Add Package Dependencies를 써요. `Package.swift`라면:
+1. 앱에 패키지 두 개를 추가해요. 이 패키지(`0.2.1`부터)와
+   [Necto](https://github.com/toss/necto)(`0.3.x`, 또는 0.2.2부터의 `0.2.x`)예요. 이 패키지의
+   `NectoMapLocalPlugin`과 Necto의 `NectoSDK`를 앱 타깃에 링크해요. 앱은 플러그인을 등록할 때
+   `NectoSDK`를 불러요. Xcode에서는 File → Add Package Dependencies를 써요. `Package.swift`라면:
    ```swift
    dependencies: [
-       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.2.0"),
-       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.2")),
+       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.2.1"),
+       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.3.0")),
    ],
    // 앱 타깃의 dependencies
    .product(name: "NectoMapLocalPlugin", package: "necto-map-local-plugin"),
@@ -91,7 +91,7 @@
 3. 이름에 `Debug`가 들어간 빌드 구성으로 빌드해요. 대소문자는 가리지 않아요. `Staging`처럼
    다른 이름이면 패키지가 Release로 빌드되어 앱이 컴파일되지 않아요
    ([빌드 구성 이름 규칙 따르기](docs/release-builds-ko.md#빌드-구성-이름-규칙-따르기)).
-4. [Necto 앱](https://github.com/toss/necto/blob/main/docs/install.md) 0.2.x를 설치하고
+4. [Necto 앱](https://github.com/toss/necto/blob/main/docs/install.md) 0.3.x를 설치하고
    실행해요. 내 iOS 앱을 실행한 뒤, Necto에서 기기 → 앱 → **Map Local**을 열어요. 내 앱이
    연결될 때까지 패널에 「앱 연결을 기다리는 중…」이 보이고, 연결되면 「규칙」과 「트래픽」
    탭이 보여요.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+- Accepts Necto 0.3.x as well as 0.2.x: the package declares `"0.2.2"..<"0.4.0"` instead of `.upToNextMinor(from: "0.2.2")`, so an app that moves to Necto 0.3.0 still resolves this plugin. Necto 0.3.0's iOS SDK is 0.2.2's, moved under `SDK/`; nothing in the plugin changes
+- The panel is built with `@necto/bridge` 0.3.0, whose only change is the padding of two component classes the panel does not use
+- `maplocal.requests.list` is described as returning events newest first, as it always has; the description said newest last
+
 ## 0.2.0
 - Mocked cookies: a `Set-Cookie` in a mocked response is journaled with the cookie it replaced. Turning Map Local off sets mocked cookies aside and turning it on puts them back; "Discard mocked cookies" in the panel, `maplocal.cookies.restore`, or `NectoMapLocalPlugin.restoreMockedCookies(scope:)` brings the real ones back, and `maplocal.cookies.list` shows them. `maplocal.state` carries `mockedCookies`, `setAsideCookies` and `lastCookieChange`. Every binding stays at version 1
 - In a panel narrower than 640 px the allowed hosts fold behind an "Allowed hosts N" button and open over the content. They close on a click outside, when focus leaves them, or with Escape where the host lets it through. The header's first row stays one line instead of squeezing its labels

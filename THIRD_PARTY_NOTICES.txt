@@ -6,7 +6,7 @@ third-party code below. Swift package dependencies (NectoSDK, and swift-clocks f
 the tests only) are not bundled: an app resolves them itself from Package.swift.
 
 --------------------------------------------------------------------------------
-@necto/bridge 0.2.0
+@necto/bridge 0.3.0
 https://github.com/toss/necto/tree/main/WebPackages/Bridge
 Included: the bridge client (JavaScript) and its theme.css and components.css.
 License: MIT
