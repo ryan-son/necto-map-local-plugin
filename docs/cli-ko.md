@@ -48,7 +48,7 @@ necto-cli plugin help io.github.ryan-son.maplocal --device <id> --app <bundle>
 | `maplocal.rule.upsert` | `plugin send` | 규칙을 추가하거나, 같은 `id`의 규칙을 바꿔요 |
 | `maplocal.rule.delete` | `plugin send` | 규칙을 지워요 |
 | `maplocal.rule.setActive` | `plugin send` | 규칙이 요청에 응답할 때 쓰는 응답을 바꿔요 |
-| `maplocal.requests.list` | `plugin send` | 앱 실행 후 최근 요청을 최대 500개까지 돌려줘요 |
+| `maplocal.requests.list` | `plugin send` | 앱 실행 후 최근 요청을 최신 순으로 최대 500개까지 돌려줘요 |
 | `maplocal.requests.observe` | `plugin subscribe` | 지금부터 앱이 보내는 요청마다 이벤트를 하나씩 보내요 |
 | `maplocal.cookies.list` | `plugin send` | 목업 쿠키의 키(domain, path, name, layer, launch)를 돌려줘요. 값은 주지 않아요 |
 | `maplocal.cookies.restore` | `plugin send` | 목업 쿠키를 지우고 진짜 쿠키를 되돌려요. `"scope": "earlierLaunches"`면 이번 실행의 것은 그대로 둬요 |
