@@ -58,6 +58,66 @@ hesitated.>
 <Each check above that was not run, and why.>
 ```
 
+## 0.2.1 — not tagged yet
+
+Build: `release/0.2.1-necto-0.3` on 270ba80 · Necto 0.2.2 and 0.3.0 (SDK; see below) · Xcode 27.1 · macOS 27.0.1
+Targets: none yet in Necto
+
+0.2.1 changes no plugin code. It widens the Necto requirement to `"0.2.2"..<"0.4.0"` and
+builds the panel with `@necto/bridge` 0.3.0. Necto 0.3.0's iOS SDK was compared with
+0.2.2's: `NectoSDK`, `NectoTransport` and `NectoURLSessionCapturePlugin` are byte for byte
+the same after the move under `SDK/`, `NectoProtocol.currentVersion` is still 1, and in
+`NectoModel` only `isValidOrigin` changed, which accepts the panel's `self`. The Traffic
+tab's `network-records.*` binding is unchanged too: `NectoNetworkPlugin` changed only the
+folder its panel is loaded from, its manifest is the same file, and the host's
+`NectoPluginRegistry.swift`, which resolves the binding across plugins, did not change. The bridge's
+only change is the padding of `.necto-sidebar-item` and `.necto-row`, which the panel does
+not use.
+
+### Automated
+
+| Check | Result |
+| --- | --- |
+| `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 |
+| `swift test` | 91 + 131 tests, against Necto 0.2.2 (`Package.resolved`), the same as 0.2.0 |
+| `cd Panel && npx vitest run` | 1101 tests, the same as 0.2.0 |
+| `script/check-necto-latest` (`swift test` against Necto 0.3.0 `exact:`, panel built on bridge 0.3.0, token test, range) | exit 0: 91 + 131 tests, 28 token tests, "Necto 0.3.0 is inside the declared range (0.2.2..<0.4.0)" |
+| Example apps archived by `script/verify-controls` against Necto 0.3.0 (`exactVersion`) | ①–⑥ ok; the archive logs resolved `necto.git @ 0.3.0` |
+| Release workflow on GitHub (tag check, CI, assets) | not run yet: runs on the tag |
+
+### In Necto
+
+| Check | Result | Build | Notes |
+| --- | --- | --- | --- |
+| App connected over USB on a device, not only the simulator | not verified yet | | |
+| The panel rendered data that started in the app (rules, traffic) | not verified yet | | Run on the Necto 0.3.0 Mac app with an app linking SDK 0.3.0 |
+| A mock applied from the next request, with no relaunch | not verified yet | | |
+| Disconnect fails pending calls instead of hanging | not verified yet | | |
+| Reconnect (relaunch the app) without restarting Necto | not verified yet | | |
+| Light appearance | not verified yet | | |
+| Dark appearance | not verified yet | | |
+| Light/dark switch with the panel open, without reloading | not verified yet | | |
+| Default text size | not verified yet | | |
+| Larger text size (Necto's zoom) | not verified yet | | |
+| Narrow panel (under 640 px): stacked list and detail, both tabs | not verified yet | | |
+| Wide panel (over 1100 px) | not verified yet | | |
+| English (Necto language setting) | not verified yet | | |
+| Korean | not verified yet | | |
+| Device badge text follows the device language | not verified yet | | |
+| CLI: `plugin list`, `plugin help`, a write and a refused write | not verified yet | | |
+| With and without Necto's network plugin registered | not verified yet | | |
+| Necto 0.3.0 Mac app with an app still on SDK 0.2.2 | not verified yet | | The wire protocol is unchanged, so this is expected to work; it has not been run |
+
+### Simulation results
+
+Not run yet.
+
+### Not verified
+
+- Every row under "In Necto": nothing has been run in the Necto 0.3.0 app yet. The Mac
+  app's sidebar, settings and split view changed in 0.3.0; the diff touches no WKWebView
+  or key handling, but that is a reading of the code, not a measurement.
+
 ## 0.2.0 — not tagged yet
 
 Build: the release candidate, once the release prep is merged · Necto 0.2.2 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1

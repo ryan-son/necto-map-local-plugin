@@ -49,10 +49,10 @@ the App Store. When you finish, your app shows a response you edited in the pane
 
 ### Requirements
 
-- [Necto](https://github.com/toss/necto) 0.2.x (0.2.2 or later, and earlier than 0.3.0),
-  for both the Mac app and the SDK the app links. The package declares
-  `.upToNextMinor(from: "0.2.2")`. A new Necto minor version, such as 0.3.0, needs a
-  matching release of this plugin.
+- [Necto](https://github.com/toss/necto) 0.2.x or 0.3.x (0.2.2 or later, and earlier than
+  0.4.0), for both the Mac app and the SDK the app links. The package declares
+  `"0.2.2"..<"0.4.0"`. A new Necto minor version, such as 0.4.0, needs a matching release
+  of this plugin.
 - iOS 17 or later for the app. The engine and the tests also build on macOS 14.
 - Xcode 26 or later. We measured the build configuration name rule and the release checks
   on Xcode 26. They also pass on Xcode 27.1 beta. CI runs on Xcode 26.
@@ -60,14 +60,14 @@ the App Store. When you finish, your app shows a response you edited in the pane
 
 ### Steps
 
-1. Add two packages to the app: this one (from `0.2.0`) and
-   [Necto](https://github.com/toss/necto) (`0.2.x`). Link `NectoMapLocalPlugin` from this
-   package and `NectoSDK` from Necto to the app target. The app calls `NectoSDK` to register
-   the plugin. In Xcode, use File → Add Package Dependencies. In a `Package.swift`:
+1. Add two packages to the app: this one (from `0.2.1`) and
+   [Necto](https://github.com/toss/necto) (`0.3.x`, or `0.2.x` from 0.2.2). Link
+   `NectoMapLocalPlugin` from this package and `NectoSDK` from Necto to the app target. The
+   app calls `NectoSDK` to register the plugin. In Xcode, use File → Add Package Dependencies. In a `Package.swift`:
    ```swift
    dependencies: [
-       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.2.0"),
-       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.2.2")),
+       .package(url: "https://github.com/ryan-son/necto-map-local-plugin.git", from: "0.2.1"),
+       .package(url: "https://github.com/toss/necto.git", .upToNextMinor(from: "0.3.0")),
    ],
    // the app target's dependencies
    .product(name: "NectoMapLocalPlugin", package: "necto-map-local-plugin"),
@@ -94,7 +94,7 @@ the App Store. When you finish, your app shows a response you edited in the pane
 3. Build with a build configuration whose name contains `Debug` (case-insensitive). Under another
    name, such as `Staging`, the package builds as Release and the app doesn't compile
    ([Follow the build configuration name rule](docs/release-builds.md#follow-the-build-configuration-name-rule)).
-4. [Install the Necto app](https://github.com/toss/necto/blob/main/docs/install.md) 0.2.x and
+4. [Install the Necto app](https://github.com/toss/necto/blob/main/docs/install.md) 0.3.x and
    open it. Run your app, then in Necto open Device → App → **Map Local**. The panel shows
    "Waiting for the app to connect…" until your app connects, then its "Rules" and
    "Traffic" tabs.
