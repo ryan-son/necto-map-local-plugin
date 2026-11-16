@@ -127,8 +127,9 @@ Not run yet.
   or key handling, but that is a reading of the code, not a measurement.
 - A device over USB, and the device badge.
 - `maplocal.requests.list` returned its events newest first, as `MapLocalEngine.recentRequests`
-  does, while its description in `Panel/public/manifest.json` says "newest last". This is
-  not a 0.2.1 change; it is recorded here to be fixed separately.
+  does, while its description in `Panel/public/manifest.json` said "newest last". #14 fixed
+  the description and the panel's mock; the `CLI` rows ran at 546acf5, before it, and #14
+  changes no behavior they cover.
 
 ## 0.2.0 — 2026-10-26
 

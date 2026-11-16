@@ -343,7 +343,8 @@ function reply(session: Session, message: Message): Reply {
           return ok({ configuration: structuredClone(session.state.configuration) });
         case "maplocal.requests.list": {
           const limit = typeof input.limit === "number" ? input.limit : 500;
-          return ok({ events: session.events.slice(-limit), lastSeq: session.events.at(-1)?.seq ?? 0 });
+          // Newest first, as MapLocalEngine.recentRequests returns them.
+          return ok({ events: session.events.slice(-limit).reverse(), lastSeq: session.events.at(-1)?.seq ?? 0 });
         }
         case "network.list": {
           const limit = typeof input.limit === "number" ? input.limit : 1000;

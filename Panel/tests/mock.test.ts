@@ -49,6 +49,8 @@ describe("dev mock host", () => {
     const { events, lastSeq } = await api().requestsList();
     expect(events.length).toBeGreaterThan(0);
     expect(lastSeq).toBe(Math.max(...events.map((e) => e.seq)));
+    // Newest first, as the engine's requests.list returns them.
+    expect(events.map((e) => e.seq)).toEqual(events.map((e) => e.seq).sort((a, b) => b - a));
     const kinds = new Set(events.map((e) => Object.keys(e.outcome)[0]));
     expect([...kinds].sort()).toEqual(["mocked", "passthrough", "unmocked"]);
   });

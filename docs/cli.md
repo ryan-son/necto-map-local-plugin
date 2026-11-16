@@ -49,7 +49,7 @@ different ID as a different plugin, with its own permissions and storage.
 | `maplocal.rule.upsert` | `plugin send` | Adds a rule, or replaces the rule with the same `id` |
 | `maplocal.rule.delete` | `plugin send` | Deletes a rule |
 | `maplocal.rule.setActive` | `plugin send` | Switches the response a rule answers with |
-| `maplocal.requests.list` | `plugin send` | Returns the most recent requests since launch, up to 500 |
+| `maplocal.requests.list` | `plugin send` | Returns the most recent requests since launch, newest first, up to 500 |
 | `maplocal.requests.observe` | `plugin subscribe` | Sends one event for every request the app makes from now on |
 | `maplocal.cookies.list` | `plugin send` | Lists the keys of mocked cookies: domain, path, name, layer and launch. Never a value |
 | `maplocal.cookies.restore` | `plugin send` | Discards mocked cookies and brings the real ones back. `"scope": "earlierLaunches"` leaves this launch's alone |
