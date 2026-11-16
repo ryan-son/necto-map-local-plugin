@@ -58,7 +58,7 @@ hesitated.>
 <Each check above that was not run, and why.>
 ```
 
-## 0.2.1 — not tagged yet
+## 0.2.1 — 2026-11-16
 
 Build: `release/0.2.1-necto-0.3` at 546acf5 (CLI rows) and 8790a45 (panel rows) · Necto 0.3.0 Mac app; SDK 0.3.0 and 0.2.2 · Xcode 27.1 · macOS 27.0.1
 Targets: two iPhone 16 simulators on iOS 18.4, one per SDK · device: one over USB (model and iOS version not recorded)
@@ -92,7 +92,7 @@ no values were measured for them.
 | `cd Panel && npx vitest run` | 1101 tests, the same as 0.2.0 |
 | `script/check-necto-latest` (`swift test` against Necto 0.3.0 `exact:`, panel built on bridge 0.3.0, token test, range) | exit 0: 91 + 131 tests, 28 token tests, "Necto 0.3.0 is inside the declared range (0.2.2..<0.4.0)" |
 | Example apps archived by `script/verify-controls` against Necto 0.3.0 (`exactVersion`) | ①–⑥ ok; the archive logs resolved `necto.git @ 0.3.0` |
-| Release workflow on GitHub (tag check, CI, assets) | not run yet: runs on the tag |
+| Release workflow on GitHub (tag check, CI, assets) | [success](https://github.com/ryan-son/necto-map-local-plugin/actions/runs/43829907663) on tag `0.2.1` at 4dd134c, the merge of #13: build and publish passed, and the release is immutable. The published `verify-release` hashes to `a5650bbd…d290d1`, the same as `script/prepare-release` gave locally |
 
 ### In Necto
 
@@ -152,7 +152,7 @@ itself.
 | `script/ci` (guard, workflow pins, panel, embed diff, swift test, release checks, controls) | exit 0 at the release prep |
 | `swift test` | 91 + 131 tests |
 | `cd Panel && npx vitest run` | 1101 tests (43 order-warning tests removed in #11, one grid-row test added in #12) |
-| Release workflow on GitHub (tag check, CI, assets) | not run yet: runs on the tag |
+| Release workflow on GitHub (tag check, CI, assets) | [success](https://github.com/ryan-son/necto-map-local-plugin/actions/runs/40357159568) on tag `0.2.0` at 270ba80, the merge of #8. Recorded on 2026-11-16 from the run's history |
 
 ### In Necto
 
