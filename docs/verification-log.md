@@ -60,8 +60,8 @@ hesitated.>
 
 ## 0.2.1 — not tagged yet
 
-Build: `release/0.2.1-necto-0.3` on 270ba80 · Necto 0.2.2 and 0.3.0 (SDK; see below) · Xcode 27.1 · macOS 27.0.1
-Targets: none yet in Necto
+Build: `release/0.2.1-necto-0.3` at 546acf5 · Necto 0.3.0 Mac app; SDK 0.3.0 and 0.2.2 · Xcode 27.1 · macOS 27.0.1
+Targets: two iPhone 16 simulators on iOS 18.4, one per SDK · device: none yet
 
 0.2.1 changes no plugin code. It widens the Necto requirement to `"0.2.2"..<"0.4.0"` and
 builds the panel with `@necto/bridge` 0.3.0. Necto 0.3.0's iOS SDK was compared with
@@ -73,6 +73,13 @@ folder its panel is loaded from, its manifest is the same file, and the host's
 `NectoPluginRegistry.swift`, which resolves the binding across plugins, did not change. The bridge's
 only change is the padding of `.necto-sidebar-item` and `.necto-row`, which the panel does
 not use.
+
+The "In Necto" rows marked `CLI` ran on 2026-11-16 through `necto-cli` against the Necto
+0.3.0 Mac app, with no panel open. The app was a QuickStart copy that links
+`NectoURLSessionCapturePlugin`, registers it unless launched with `-noCapture`, and
+requests `https://httpbin.org/json` and `/uuid` every 3 seconds. It was built twice, with
+the SDK at 0.3.0 and at 0.2.2, and both ran at the same time with the same steps. Rows that
+need the panel on screen are still open.
 
 ### Automated
 
@@ -90,10 +97,10 @@ not use.
 | Check | Result | Build | Notes |
 | --- | --- | --- | --- |
 | App connected over USB on a device, not only the simulator | not verified yet | | |
-| The panel rendered data that started in the app (rules, traffic) | not verified yet | | Run on the Necto 0.3.0 Mac app with an app linking SDK 0.3.0 |
-| A mock applied from the next request, with no relaunch | not verified yet | | |
-| Disconnect fails pending calls instead of hanging | not verified yet | | |
-| Reconnect (relaunch the app) without restarting Necto | not verified yet | | |
+| The panel rendered data that started in the app (rules, traffic) | not verified yet | | The panel was not opened. Through the CLI, both apps answered `maplocal.state` and `maplocal.requests.list` with their own launch's data |
+| A mock applied from the next request, with no relaunch | pass (CLI) | 546acf5 | Both SDKs. `rule.upsert` of a 418 `/json` rule at t: the request at −0.74 s (0.3.0) and −0.22 s (0.2.2) passed through, the next one at +3.08 s and +3.58 s was mocked by rule `json` |
+| Disconnect fails pending calls instead of hanging | pass (CLI) | 546acf5 | Both SDKs. A `plugin subscribe maplocal.requests.observe --timeout 60s` ended 0.4 s (0.3.0) and 1.2 s (0.2.2) after `simctl terminate` with `TARGET_DISCONNECTED`, and `device list` dropped the apps. The panel closing was not seen |
+| Reconnect (relaunch the app) without restarting Necto | pass (CLI) | 546acf5 | Both SDKs, three relaunches. Both apps were listed again about 2 s after launch, with a new `launchID`, revision 2, the `json` rule and `httpbin.org` kept, and `/json` mocked again |
 | Light appearance | not verified yet | | |
 | Dark appearance | not verified yet | | |
 | Light/dark switch with the panel open, without reloading | not verified yet | | |
@@ -104,9 +111,9 @@ not use.
 | English (Necto language setting) | not verified yet | | |
 | Korean | not verified yet | | |
 | Device badge text follows the device language | not verified yet | | |
-| CLI: `plugin list`, `plugin help`, a write and a refused write | not verified yet | | |
-| With and without Necto's network plugin registered | not verified yet | | |
-| Necto 0.3.0 Mac app with an app still on SDK 0.2.2 | not verified yet | | The wire protocol is unchanged, so this is expected to work; it has not been run |
+| CLI: `plugin list`, `plugin help`, a write and a refused write | pass | 546acf5 | Both SDKs. `plugin list` showed Map Local 0.2.1 and `network-logger`; `plugin help` listed every operation; `configuration.patch` and `rule.upsert` saved revisions 1 and 2; an upsert on `baseRevision` 1 answered `ok:false`, `conflict`, revision 2 |
+| With and without Necto's network plugin registered | pass (CLI) | 546acf5 | Both SDKs. With it: `network.list` through Map Local's binding held as many records as `maplocal.requests.list` held events (54 and 54, 52 and 52), so each request once, and `network.detail` of a mocked `/json` carried `X-Map-Local` and the mocked body. Without it (`-noCapture`): `plugin list` showed Map Local alone, `network.list` failed with `OPERATION_UNAVAILABLE`, and requests were still listed and mocked. The panel's text for that case was not seen |
+| Necto 0.3.0 Mac app with an app still on SDK 0.2.2 | pass (CLI) | 546acf5 | Every `CLI` row above ran on this pairing too, with the same results as SDK 0.3.0. The panel was not opened on it |
 
 ### Simulation results
 
@@ -114,9 +121,14 @@ Not run yet.
 
 ### Not verified
 
-- Every row under "In Necto": nothing has been run in the Necto 0.3.0 app yet. The Mac
-  app's sidebar, settings and split view changed in 0.3.0; the diff touches no WKWebView
+- Everything that needs the panel on screen: rendering, appearance, text size, widths,
+  language, and the panel's side of disconnect, reconnect and the no-capture message. The
+  Mac app's sidebar, settings and split view changed in 0.3.0; the diff touches no WKWebView
   or key handling, but that is a reading of the code, not a measurement.
+- A device over USB, and the device badge.
+- `maplocal.requests.list` returned its events newest first, as `MapLocalEngine.recentRequests`
+  does, while its description in `Panel/public/manifest.json` says "newest last". This is
+  not a 0.2.1 change; it is recorded here to be fixed separately.
 
 ## 0.2.0 — 2026-10-26
 
