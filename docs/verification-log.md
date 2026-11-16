@@ -118,7 +118,7 @@ Not run yet.
   app's sidebar, settings and split view changed in 0.3.0; the diff touches no WKWebView
   or key handling, but that is a reading of the code, not a measurement.
 
-## 0.2.0 — not tagged yet
+## 0.2.0 — 2026-10-26
 
 Build: the release candidate, once the release prep is merged · Necto 0.2.2 (Mac app and SDK) · Xcode 27.0 · macOS 27.0.1
 Targets: iOS simulator (iPhone SE (3rd generation), iOS 18.4) · device: none yet
