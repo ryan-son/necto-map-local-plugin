@@ -13,7 +13,8 @@ latest=$(git ls-remote --tags --refs https://github.com/toss/necto.git | sed 's#
 echo "latest necto: $latest"
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 rsync -a --exclude .build --exclude Panel/node_modules "$root/" "$work/"
-sed -i '' -E "s#\.package\(url: \"https://github.com/toss/necto.git\", \.upToNextMinor\(from: \"[0-9.]+\"\)\)#.package(url: \"https://github.com/toss/necto.git\", exact: \"$latest\")#" "$work/Package.swift"
+# The requirement is either `.upToNextMinor(from: "a.b.c")` or a range `"a.b.c"..<"x.y.z"`.
+sed -i '' -E "s#\.package\(url: \"https://github.com/toss/necto.git\", [^)]*(\)\)|\"\)),#.package(url: \"https://github.com/toss/necto.git\", exact: \"$latest\"),#" "$work/Package.swift"
 command grep -q "exact: \"$latest\"" "$work/Package.swift" || { echo "could not find the necto dependency line in Package.swift"; exit 2; }
 (cd "$work" && swift package resolve && swift test)
 bridge="https://github.com/toss/necto/releases/download/$latest/necto-bridge-$latest.tgz"
@@ -27,9 +28,20 @@ curl -fsSLI -o /dev/null "$bridge" || { echo "no bridge tarball at $bridge"; exi
   npm run build
   npx vitest run tests/tokens.test.ts
 )
-declared=$(sed -nE 's#.*toss/necto.git", \.upToNextMinor\(from: "([0-9]+\.[0-9]+)\.[0-9]+"\).*#\1#p' "$root/Package.swift")
-[ -n "$declared" ] || { echo "could not read the declared Necto range"; exit 2; }
-if [ "${latest%.*}" != "$declared" ]; then
-  echo "Necto ${latest} is outside the declared range (${declared}.x). The tests passed, but an app on that version cannot resolve this plugin alongside it — a matching release is needed"
+line=$(command grep -E 'toss/necto.git"' "$root/Package.swift")
+if [[ $line =~ upToNextMinor\(from:\ \"([0-9]+)\.([0-9]+)\.([0-9]+)\"\) ]]; then
+  lower="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+  upper="${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
+elif [[ $line =~ \"([0-9]+\.[0-9]+\.[0-9]+)\"\.\.\<\"([0-9]+\.[0-9]+\.[0-9]+)\" ]]; then
+  lower="${BASH_REMATCH[1]}"
+  upper="${BASH_REMATCH[2]}"
+else
+  echo "could not read the declared Necto range"; exit 2
+fi
+# In range when lower <= latest < upper.
+if [ "$(printf '%s\n%s\n' "$lower" "$latest" | sort -V | head -1)" != "$lower" ] || [ "$latest" = "$upper" ] ||
+   [ "$(printf '%s\n%s\n' "$latest" "$upper" | sort -V | head -1)" != "$latest" ]; then
+  echo "Necto ${latest} is outside the declared range (${lower}..<${upper}). The tests passed, but an app on that version cannot resolve this plugin alongside it — a matching release is needed"
   exit 1
 fi
+echo "Necto ${latest} is inside the declared range (${lower}..<${upper})"

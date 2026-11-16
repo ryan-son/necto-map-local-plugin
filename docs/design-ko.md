@@ -6,7 +6,10 @@
 결정이 바뀌면 이 문서도 함께 고쳐요. 패널이 어떻게 보이고 동작하는지는
 [experience-ko.md](experience-ko.md)가, 플러그인 사용법은 [usage-ko.md](usage-ko.md)가 정해요.
 
-상류(Necto) 참조는 이 릴리스가 받아들이는 가장 오래된 버전인 Necto 0.2.2 기준이에요.
+상류(Necto) 참조는 이 릴리스가 받아들이는 가장 오래된 버전인 Necto 0.2.2 기준이에요. Necto
+0.3.0은 iOS 소스를 바꾸지 않고 옮겼어요. 거기서는 `Sources/NectoSDK`가
+`SDK/iOS/Sources/NectoSDK`이고, `Sources/NectoURLSessionCapturePlugin`이
+`SDK/Plugins/URLSessionCapture/iOS`예요.
 
 ## 목표
 
@@ -399,9 +402,13 @@ Cookie·Set-Cookie 헤더, 또는 token·secret·password·api key·session 같�
 - 플러그인 ID는 작성자 GitHub 계정 아래 역도메인인 `io.github.ryan-son.maplocal`이고 바뀌지
   않아요. Necto는 새 ID를 권한과 저장소가 따로인 다른 플러그인으로 봐요. 오퍼레이션 id는
   `maplocal.` 접두사를 유지해요.
-- Necto는 `.upToNextMinor(from: "0.2.2")`으로 요구해요. 0.2.2가 최소인 이유는 URLSession 캡처를
-  설정 안내가 가리키는 별도 product `NectoURLSessionCapturePlugin`으로 옮기고 요청을 다시 보내지
-  않게 됐기 때문이에요. 마이너 사이에 SDK 소스 API가 바뀌어
-  왔으므로 범위를 넓히면 빌드가 깨질 수 있고, `exact:`는 앱 자신의 Necto 의존성과 충돌해요.
-  매주 도는 `script/check-necto-latest`가 최신 Necto 태그와 그 `@necto/bridge`로 테스트하고,
-  맞춘 릴리스가 필요하면 알려요.
+- Necto는 `"0.2.2"..<"0.4.0"`으로 요구해요. 0.2.2가 최소인 이유는 URLSession 캡처를 설정
+  안내가 가리키는 별도 product `NectoURLSessionCapturePlugin`으로 옮기고 요청을 다시 보내지
+  않게 됐기 때문이에요. 마이너 사이에 SDK 소스 API가 바뀌어 왔으므로 범위는 아직 확인하지
+  않은 다음 마이너에서 닫고, `exact:`는 앱 자신의 Necto 의존성과 충돌해요. 0.3.0이 범위에
+  드는 이유는 iOS SDK 소스와 와이어 프로토콜이 0.2.2 그대로 `SDK/` 아래로 옮겨졌을 뿐이기
+  때문이에요. manifest의 origin 검증만 엄격해졌고, 패널은 `self`를 선언해요.
+  `Package.resolved`는 최소 버전에 두어 CI의 `swift test`가 그것을 검사하고, 예제 앱은
+  받아들이는 가장 새 버전을 고정해 `script/verify-controls`가 아카이브해요. 매주 도는
+  `script/check-necto-latest`가 최신 Necto 태그와 그 `@necto/bridge`로 테스트하고, 맞춘
+  릴리스가 필요하면 알려요.
